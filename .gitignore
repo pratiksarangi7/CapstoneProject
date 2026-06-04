@@ -1,0 +1,40 @@
+## ---------- Visual Studio Build Outputs ----------
+# Excludes the compiled binaries and object files
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+
+## ---------- Core Tools and Packages ----------
+# Excludes downloaded NuGet packages (these are restored automatically via 'dotnet restore')
+*.nuget.dgspec.json
+*.nuget.g.props
+*.nuget.g.targets
+project.lock.json
+project.fragment.lock.json
+
+## ---------- User-Specific Configurations ----------
+# Excludes personal IDE settings, window layouts, and local history
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## ---------- Operating System Files ----------
+# Excludes OS-specific junk files
+.DS_Store
+Thumbs.db
+
+## ---------- Testing Outputs ----------
+# Excludes test coverage reports and test results
+*.codecoverage
+TestResults/
+
+## ---------- Environment & Secrets ----------
+# Excludes local application settings that might contain database passwords or API keys
+appsettings.Development.json
+.env
