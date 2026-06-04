@@ -10,17 +10,59 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using System.Threading.RateLimiting;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── MVC Controllers ────────────────────────────────────────────────────────────
 builder.Services.AddControllers();
 
-// ── Swagger / OpenAPI ──────────────────────────────────────────────────────────
+#region Rate Limiting
+builder.Services.AddRateLimiter(
+    options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "Too many requests.",
+            message = "You have exceeded your allowed requests. Please try again later."
+        }, cancellationToken: token);
+    };
+        options.AddPolicy("FixedPerUser", httpContext =>
+            {
+                string partitionKey;
+
+                if (httpContext.User.Identity?.IsAuthenticated == true)
+                {
+                    var userIdClaim = httpContext.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                    partitionKey = $"user-{userIdClaim ?? "unknown-id"}";
+                }
+                else
+                {
+                    var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+                    partitionKey = $"ip-{clientIp}";
+                }
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: partitionKey,
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    });
+            });
+    }
+);
+#endregion
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    // Define the JWT Bearer security scheme
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -31,18 +73,16 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Enter your JWT token. The 'Bearer ' prefix is added automatically by Swagger UI."
     });
 
-    // Apply the scheme globally – Swashbuckle v10 / Microsoft.OpenApi v2+ syntax
     options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
     {
         [new OpenApiSecuritySchemeReference("Bearer", doc)] = []
     });
 });
 
-// ── Database ───────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ── JWT Authentication ─────────────────────────────────────────────────────────
+#region JWT
 var jwtSection = builder.Configuration.GetSection("JWT");
 var key = Encoding.UTF8.GetBytes(jwtSection["Key"]!);
 
@@ -64,10 +104,9 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
     };
 });
-
+#endregion
 builder.Services.AddAuthorization();
 
-// ── Repositories ───────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IRepository<int, User>, UserRepository>();
 builder.Services.AddScoped<IRepository<int, Department>, DepartmentRepository>();
 builder.Services.AddScoped<IRepository<int, Document>, DocumentRepository>();
@@ -75,17 +114,15 @@ builder.Services.AddScoped<IRepository<int, DocumentVersion>, DocumentVersionRep
 builder.Services.AddScoped<IRepository<int, ApprovalAction>, ApprovalActionRepository>();
 builder.Services.AddScoped<IRepository<int, AuditLog>, AuditLogRepository>();
 
-// ── Services ───────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<DocumentService>();
-builder.Services.AddAutoMapper(m=> m.AddProfile(new MappingProfile()));
+builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
+
 
 var app = builder.Build();
 
-// ── Middleware pipeline ────────────────────────────────────────────────────────
-// Global exception handler must be registered first so it wraps every other middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -98,7 +135,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

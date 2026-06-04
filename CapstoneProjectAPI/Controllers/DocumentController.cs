@@ -1,15 +1,17 @@
 using System.Security.Claims;
-using CapstoneProjectAPI.Exceptions;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CapstoneProjectAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting("FixedPerUser")]
+
     public class DocumentController : ControllerBase
     {
         private readonly DocumentService _documentService;
@@ -20,7 +22,7 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpPost("upload")]
-        [RequestSizeLimit(5 * 1024 * 1024)] 
+        [RequestSizeLimit(5 * 1024 * 1024)]
         public async Task<IActionResult> Upload([FromForm] UploadDocumentRequestDto request)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -33,11 +35,6 @@ namespace CapstoneProjectAPI.Controllers
             return CreatedAtAction(nameof(Upload), new { id = result.DocumentId }, result);
         }
 
-        /// <summary>
-        /// Withdraws a document uploaded by the authenticated user.
-        /// Only allowed when the document status is still PendingApproval.
-        /// Deletes the document, all versions, and associated files from disk.
-        /// </summary>
         [HttpDelete("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -65,7 +62,7 @@ namespace CapstoneProjectAPI.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetMyUploadedDocuments()
+        public async Task<IActionResult> GetMyUploadedDocuments([FromQuery] int pageNumber, [FromQuery] int pageSize)
         {
 
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -74,20 +71,17 @@ namespace CapstoneProjectAPI.Controllers
                 return Unauthorized(new { message = "Invalid user token." });
             }
 
-            var documents = await _documentService.GetDocumentsUploadedByUserAsync(userId);
+            var documents = await _documentService.GetDocumentsUploadedByUserAsync(userId, pageNumber, pageSize);
             return Ok(documents);
 
         }
 
-        /// <summary>
-        /// Gets all documents pending approval by the currently authenticated user.
-        /// </summary>
         [HttpGet("pending-approvals")]
         [ProducesResponseType(typeof(IEnumerable<UserDocumentResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetDocumentsPendingApproval()
+        public async Task<IActionResult> GetDocumentsPendingApproval([FromQuery] int pageNumber, [FromQuery] int pageSize)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
@@ -95,7 +89,7 @@ namespace CapstoneProjectAPI.Controllers
                 return Unauthorized(new { message = "Invalid user token." });
             }
 
-            var documents = await _documentService.GetDocumentsPendingApprovalByUserAsync(userId);
+            var documents = await _documentService.GetDocumentsPendingApprovalByUserAsync(userId, pageNumber, pageSize);
             return Ok(documents);
         }
 
@@ -182,6 +176,25 @@ namespace CapstoneProjectAPI.Controllers
 
             var result = await _documentService.TransferDocumentAsync(id, request, approverUserId);
             return Ok(result);
+        }
+
+        [HttpGet("{id:int}/file")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetDocumentFile(int id, [FromQuery] int? versionId = null)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int requestingUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            var file = await _documentService.GetDocumentFileAsync(id, requestingUserId, versionId);
+
+            return PhysicalFile(file.FilePath, file.MimeType,
+                enableRangeProcessing: true);
         }
     }
 }

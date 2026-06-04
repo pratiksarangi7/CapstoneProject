@@ -38,3 +38,4 @@ TestResults/
 # Excludes local application settings that might contain database passwords or API keys
 appsettings.Development.json
 .env
+Uploads/

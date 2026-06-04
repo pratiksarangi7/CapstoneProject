@@ -1,6 +1,7 @@
 using AutoMapper;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Exceptions;
+using CapstoneProjectAPI.Misc;
 using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -17,14 +18,28 @@ namespace CapstoneProjectAPI.Services
             _context = context;
             _mapper = mapper;
         }
-        public async Task<List<UserDetailsResponseDto>> GetUsers()
+        public async Task<PagedResult<UserDetailsResponseDto>> GetUsers(int pageNumber = 1, int pageSize = 10)
         {
-            var users = await _context.Users
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            var query = _context.Users
                 .Include(u => u.Department)
                 .Include(u => u.Manager)
-                .ToListAsync();
+                .OrderBy(u => u.Id);
+            int totalCount = await query.CountAsync();
+            var users = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+            var mappedUsers = _mapper.Map<List<UserDetailsResponseDto>>(users);
 
-            return _mapper.Map<List<UserDetailsResponseDto>>(users);
+            return new PagedResult<UserDetailsResponseDto>
+            {
+                Items = mappedUsers,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
         }
 
         public async Task<bool> ChangeUserManager(ChangeUserManagerRequestDto request)

@@ -2,11 +2,13 @@ using AutoMapper;
 using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CapstoneProjectAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [EnableRateLimiting("FixedPerUser")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthenticationService _authService;
@@ -30,9 +32,6 @@ namespace CapstoneProjectAPI.Controllers
 
         }
 
-        /// <summary>
-        /// Authenticates a user and returns a JWT token.
-        /// </summary>
         [HttpPost("login")]
         [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]

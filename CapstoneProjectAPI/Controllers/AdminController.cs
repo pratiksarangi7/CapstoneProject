@@ -20,9 +20,9 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("users")]
-        public async Task<IActionResult> GetUsers()
+        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var users = await _adminService.GetUsers();
+            var users = await _adminService.GetUsers(pageNumber, pageSize);
             return Ok(users);
         }
 

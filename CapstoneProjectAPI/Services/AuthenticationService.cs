@@ -8,6 +8,7 @@ using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using CapstoneProjectAPI.Models.Enums;
 
 namespace CapstoneProjectAPI.Services
 {
@@ -64,6 +65,15 @@ namespace CapstoneProjectAPI.Services
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
+            _context.AuditLogs.Add(new AuditLog()
+            {
+                Action = AuditAction.UserRegistered,
+                CreatedAt = DateTimeOffset.UtcNow,
+                PerformedByUserId = user.Id,
+                Details = $"New user registered. Email: {user.Email}",
+            });
+            await _context.SaveChangesAsync();
+
             return _mapper.Map<RegisterResponseDto>(user);
         }
 
@@ -76,7 +86,14 @@ namespace CapstoneProjectAPI.Services
                 throw new UnauthorizedAccessException("Invalid email or password.");
 
             string token = GenerateJwtToken(user);
-
+            _context.AuditLogs.Add(new AuditLog()
+            {
+                Action = AuditAction.UserRegistered,
+                CreatedAt = DateTimeOffset.UtcNow,
+                PerformedByUserId = user.Id,
+                Details = $"User logged in. Email: {user.Email}",
+            });
+            await _context.SaveChangesAsync();
             return _mapper.Map<LoginResponseDto>(user, opts =>
             {
                 opts.Items["JwtToken"] = token;

@@ -5,12 +5,15 @@ using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CapstoneProjectAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [EnableRateLimiting("FixedPerUser")]
+
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
