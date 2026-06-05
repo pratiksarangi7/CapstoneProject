@@ -224,7 +224,6 @@ namespace CapstoneProjectTest
                 Level = 0
             };
 
-            // Act & Assert
             Assert.ThrowsAsync<ArgumentException>(async () => await _adminService.ChangeUserLevel(request));
         }
 
@@ -344,10 +343,10 @@ namespace CapstoneProjectTest
             Assert.That(result.Count, Is.GreaterThanOrEqualTo(1));
             var hrDept = result.FirstOrDefault(d => d.Name == "HR");
             Assert.That(hrDept, Is.Not.Null);
-            Assert.That(hrDept.Users.Count, Is.EqualTo(2));
+            Assert.That(hrDept!.Users.Count, Is.EqualTo(2));
             var empDto = hrDept.Users.FirstOrDefault(u => u.Name == "Employee");
             Assert.That(empDto, Is.Not.Null);
-            Assert.That(empDto.ManagerName, Is.EqualTo("Manager"));
+            Assert.That(empDto!.ManagerName, Is.EqualTo("Manager"));
         }
     }
 }

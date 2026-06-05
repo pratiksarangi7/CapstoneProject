@@ -19,7 +19,7 @@ namespace CapstoneProjectTest
         public void Setup()
         {
             var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(databaseName: "CapstoneAuthDb_" + Guid.NewGuid().ToString()) // Unique DB per run
+                .UseInMemoryDatabase(databaseName: "CapstoneAuthDb_" + Guid.NewGuid().ToString())
                 .Options;
 
             _context = new AppDbContext(options);

@@ -3,6 +3,7 @@ using CapstoneProjectAPI.Services;
 using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+
 namespace CapstoneProjectTest
 {
     [TestFixture]
@@ -139,7 +140,7 @@ namespace CapstoneProjectTest
 
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Items.Count, Is.EqualTo(1));
-            
+
             var item = result.Items.First();
             Assert.That(item.Id, Is.EqualTo(auditLog.Id));
             Assert.That(item.PerformedByUserId, Is.EqualTo(user.Id));

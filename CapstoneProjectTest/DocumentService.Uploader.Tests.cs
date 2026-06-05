@@ -231,6 +231,7 @@ namespace CapstoneProjectTest
             Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await _documentService.WithdrawDocumentAsync(uploadedDoc.DocumentId, uploader.Id));
         }
+
         [Test]
         public async Task GetDocumentsUploadedByUserAsync_ValidUser_ReturnsPagedDocuments()
         {
@@ -270,5 +271,162 @@ namespace CapstoneProjectTest
                 await _documentService.GetDocumentsUploadedByUserAsync(999, 1, 10));
         }
 
+        [Test]
+        public async Task ReUploadDocumentVersionAsync_ValidRequest_CreatesNewVersionSetsPendingApprovalAndWritesAuditLog()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var manager = new User { Name = "Manager", Email = "manager@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(manager);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id, ManagerId = manager.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Rejected Document",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.Rejected,
+                CurrentApproverUserId = null
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var oldVersion = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "old.pdf",
+                StoredFileName = "old_stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(oldVersion);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("new.pdf", "application/pdf", 200);
+            var request = new ReUploadDocumentRequestDto
+            {
+                File = mockFile.Object
+            };
+
+            var result = await _documentService.ReUploadDocumentVersionAsync(document.Id, request, uploader.Id);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.DocumentId, Is.EqualTo(document.Id));
+            Assert.That(result.DocumentStatus, Is.EqualTo("PendingApproval"));
+            Assert.That(result.VersionNumber, Is.EqualTo(2));
+            Assert.That(result.OriginalFileName, Is.EqualTo("new.pdf"));
+            Assert.That(result.CurrentApproverUserId, Is.EqualTo(manager.Id));
+
+            var updatedDoc = await _context.Documents
+                .Include(d => d.Versions)
+                .FirstOrDefaultAsync(d => d.Id == document.Id);
+            Assert.That(updatedDoc, Is.Not.Null);
+            Assert.That(updatedDoc!.DocumentStatus, Is.EqualTo(DocumentStatus.PendingApproval));
+            Assert.That(updatedDoc.CurrentApproverUserId, Is.EqualTo(manager.Id));
+            Assert.That(updatedDoc.Versions.Count, Is.EqualTo(2));
+
+            var dbOldVersion = updatedDoc.Versions.First(v => v.VersionNumber == 1);
+            var dbNewVersion = updatedDoc.Versions.First(v => v.VersionNumber == 2);
+            Assert.That(dbOldVersion.IsCurrentVersion, Is.False);
+            Assert.That(dbNewVersion.IsCurrentVersion, Is.True);
+            var auditLog = await _context.AuditLogs.FirstOrDefaultAsync(al => al.DocumentId == document.Id && al.Action == AuditAction.NewVersionUploaded);
+            Assert.That(auditLog, Is.Not.Null);
+            Assert.That(auditLog!.Details, Contains.Substring("New version 2 uploaded"));
+
+            var files = Directory.GetFiles(_testUploadsFolder);
+            Assert.That(files.Length, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ReUploadDocumentVersionAsync_DocumentNotFound_ThrowsEntityNotFoundException()
+        {
+            var mockFile = CreateMockFile("new.pdf", "application/pdf", 200);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+
+            Assert.ThrowsAsync<EntityNotFoundException>(async () => 
+                await _documentService.ReUploadDocumentVersionAsync(999, request, 1));
+        }
+
+        [Test]
+        public async Task ReUploadDocumentVersionAsync_UserNotAuthorised_ThrowsUnauthorizedAccessException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var otherUser = new User { Name = "Other", Email = "other@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, otherUser);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Rejected Document",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.Rejected
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("new.pdf", "application/pdf", 200);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+
+            Assert.ThrowsAsync<UnauthorizedAccessException>(async () => 
+                await _documentService.ReUploadDocumentVersionAsync(document.Id, request, otherUser.Id));
+        }
+
+        [Test]
+        public async Task ReUploadDocumentVersionAsync_DocumentNotRejected_ThrowsInvalidOperationException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Pending Document",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("new.pdf", "application/pdf", 200);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+            Assert.ThrowsAsync<InvalidOperationException>(async () => 
+                await _documentService.ReUploadDocumentVersionAsync(document.Id, request, uploader.Id));
+        }
+
+        [Test]
+        public async Task ReUploadDocumentVersionAsync_FileExceedsMaxSize_ThrowsArgumentException()
+        {
+            var mockFile = CreateMockFile("large.pdf", "application/pdf", 6 * 1024 * 1024);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+            Assert.ThrowsAsync<ArgumentException>(async () => 
+                await _documentService.ReUploadDocumentVersionAsync(1, request, 1));
+        }
+
+        [Test]
+        public async Task ReUploadDocumentVersionAsync_InvalidMimeType_ThrowsArgumentException()
+        {
+            var mockFile = CreateMockFile("test.txt", "text/plain", 100);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+            Assert.ThrowsAsync<ArgumentException>(async () => 
+                await _documentService.ReUploadDocumentVersionAsync(1, request, 1));
+        }
     }
 }
