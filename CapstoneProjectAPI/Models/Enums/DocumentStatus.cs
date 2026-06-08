@@ -6,6 +6,7 @@ namespace CapstoneProjectAPI.Models.Enums
         PendingApproval,
         Approved,
         Rejected,
-        ForwardedToDepartment
+        ForwardedToDepartment,
+        DocumentWithdrawn
     }
 }

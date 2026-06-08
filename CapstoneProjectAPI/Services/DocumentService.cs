@@ -223,7 +223,7 @@ namespace CapstoneProjectAPI.Services
             };
         }
 
-        private static UserDocumentResponseDto MapUserDocument(Document document)
+        public static UserDocumentResponseDto MapUserDocument(Document document)
         {
             return new UserDocumentResponseDto
             {
@@ -282,13 +282,13 @@ namespace CapstoneProjectAPI.Services
 
         public async Task<PagedResult<UserDocumentResponseDto>> GetDocumentsPendingApprovalByUserAsync(int userId, int pageNumber = 1, int pageSize = 10)
         {
-            if(pageNumber<1) pageNumber=1;
-            if(pageSize<1 || pageSize>100) pageSize=10;
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
             var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
             if (!userExists)
                 throw new EntityNotFoundException("User not found.");
 
-            var query =  _context.Documents
+            var query = _context.Documents
                 .Include(d => d.TargetDepartment)
                 .Include(d => d.CreatedByUser)
                 .Include(d => d.CurrentApprover)
@@ -300,14 +300,14 @@ namespace CapstoneProjectAPI.Services
                         .ThenInclude(aa => aa.ApproverUser)
                 .Where(d => d.CurrentApproverUserId == userId && d.DocumentStatus == DocumentStatus.PendingApproval)
                 .OrderByDescending(d => d.CreatedAt);
-            int totalCount=await query.CountAsync();
-            var documents=await query.Skip((pageNumber-1)*pageSize).Take(pageSize).ToListAsync();
+            int totalCount = await query.CountAsync();
+            var documents = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
             return new PagedResult<UserDocumentResponseDto>()
             {
                 Items = documents.Select(MapUserDocument).ToList(),
-                PageNumber=pageNumber,
-                PageSize=pageSize,
-                TotalCount=totalCount
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount
             };
         }
 

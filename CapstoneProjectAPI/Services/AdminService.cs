@@ -122,6 +122,34 @@ namespace CapstoneProjectAPI.Services
 
             return department;
         }
+        public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(int pageNumber = 1, int pageSize = 10)
+        {
+
+            var query = _context.Documents
+                        .Include(d => d.TargetDepartment)
+                        .Include(d => d.CreatedByUser)
+                        .Include(d => d.CurrentApprover)
+                        .ThenInclude(u => u!.Department)
+                        .Include(d => d.Versions)
+                        .ThenInclude(v => v.UploadedByUser)
+                        .Include(d => d.Versions)
+                        .ThenInclude(v => v.ApprovalActions)
+                        .ThenInclude(aa => aa.ApproverUser)
+                        .OrderByDescending(d => d.CreatedAt);
+            int totalCount = await query.CountAsync();
+            var documents = await query.Skip((pageNumber - 1) * pageSize)
+                                .Take(pageSize)
+                                .ToListAsync();
+            return new PagedResult<UserDocumentResponseDto>()
+            {
+                Items = documents.Select(DocumentService.MapUserDocument).ToList(),
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
+
+
+        }
 
         public async Task<List<DepartmentResponseDto>> GetDepartments()
         {
@@ -146,5 +174,6 @@ namespace CapstoneProjectAPI.Services
                 .ToListAsync();
             return departments;
         }
+
     }
 }

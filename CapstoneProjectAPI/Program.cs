@@ -107,6 +107,7 @@ builder.Services.AddAuthentication(options =>
 #endregion
 builder.Services.AddAuthorization();
 
+#region DI Register
 builder.Services.AddScoped<IRepository<int, User>, UserRepository>();
 builder.Services.AddScoped<IRepository<int, Department>, DepartmentRepository>();
 builder.Services.AddScoped<IRepository<int, Document>, DocumentRepository>();
@@ -118,8 +119,9 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<DocumentService>();
+builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
-
+#endregion
 
 var app = builder.Build();
 

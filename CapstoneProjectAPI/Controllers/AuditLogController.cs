@@ -1,0 +1,32 @@
+using CapstoneProjectAPI.Models.Enums;
+using CapstoneProjectAPI.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CapstoneProjectAPI.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")]
+    public class AuditLogController : ControllerBase
+    {
+        private readonly AuditLogService _auditLogService;
+        public AuditLogController(AuditLogService auditLogService)
+        {
+            _auditLogService = auditLogService;
+        }
+        [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetAuditActions(
+            [FromQuery] AuditAction? action,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var results = await _auditLogService.GetAuditLogs(action, pageNumber, pageSize);
+            return Ok(results);
+        }
+
+    }
+}
