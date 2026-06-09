@@ -85,6 +85,9 @@ namespace CapstoneProjectAPI.Services
             if (user == null || !VerifyPassword(request.Password, user.PasswordHash))
                 throw new UnauthorizedAccessException("Invalid email or password.");
 
+            if (!user.IsActive)
+                throw new UnauthorizedAccessException("Your account has been deactivated. Please contact your administrator.");
+
             string token = GenerateJwtToken(user);
             _context.AuditLogs.Add(new AuditLog()
             {

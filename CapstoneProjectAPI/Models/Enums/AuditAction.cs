@@ -9,6 +9,8 @@ namespace CapstoneProjectAPI.Models.Enums
         DocumentApproved,
         DocumentRejected,
         DocumentDownloaded,
-        DocumentForwarded
+        DocumentForwarded,
+        DocumentWithdrawn,
+        UserDeactivated
     }
 }

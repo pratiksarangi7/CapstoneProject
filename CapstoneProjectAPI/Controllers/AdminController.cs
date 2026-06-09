@@ -3,6 +3,7 @@ using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace CapstoneProjectAPI.Controllers
 {
@@ -31,8 +32,6 @@ namespace CapstoneProjectAPI.Controllers
         {
             var result = await _adminService.ChangeUserManager(request);
             return Ok(new { message = "User manager updated successfully." });
-
-
         }
 
         [HttpPut("change-level")]
@@ -65,6 +64,45 @@ namespace CapstoneProjectAPI.Controllers
             var departments = await _adminService.GetDepartments();
             return Ok(departments);
 
+        }
+
+        [HttpGet("documents/all")]
+        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber=1, int pageSize=10)
+        {
+            var documents = await _adminService.GetAllDocuments(pageNumber, pageSize);
+            return Ok(documents);
+        }
+
+        [HttpPut("reassign-documents")]
+        public async Task<IActionResult> ReassignDocuments([FromBody] ReassignDocumentsRequestDto request)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int adminUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            await _adminService.ReassignDocuments(request, adminUserId);
+            return Ok(new { message = "Documents reassigned successfully." });
+        }
+
+        [HttpPut("users/{id:int}/deactivate")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeactivateUser(int id)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int adminUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            await _adminService.DeactivateUser(id, adminUserId);
+            return Ok(new { message = "User deactivated successfully." });
         }
     }
 }

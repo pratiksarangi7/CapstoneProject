@@ -12,7 +12,6 @@ namespace CapstoneProjectAPI.Models
         public string? Details { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-        // Navigation properties
         public User PerformedByUser { get; set; } = null!;
         public Document? Document { get; set; }
         public DocumentVersion? DocumentVersion { get; set; }

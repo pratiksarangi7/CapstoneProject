@@ -13,7 +13,6 @@ namespace CapstoneProjectAPI.Models
         public int UploadedByUserId { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-        // Navigation properties
         public Document Document { get; set; } = null!;
         public User UploadedByUser { get; set; } = null!;
         public ICollection<ApprovalAction> ApprovalActions { get; set; } = new List<ApprovalAction>();

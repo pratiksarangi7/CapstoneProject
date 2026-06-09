@@ -1,4 +1,3 @@
-using System.Numerics;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Exceptions;
 using CapstoneProjectAPI.Misc;
@@ -134,14 +133,6 @@ namespace CapstoneProjectAPI.Services
                     $"Document cannot be withdrawn because its status is '{document.DocumentStatus}'. " +
                     "Only documents with status 'PendingApproval' can be withdrawn.");
 
-            foreach (var version in document.Versions)
-            {
-                if (version.AuditLogs.Any())
-                    _context.AuditLogs.RemoveRange(version.AuditLogs);
-            }
-
-            if (document.AuditLogs.Any())
-                _context.AuditLogs.RemoveRange(document.AuditLogs);
 
             string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
             foreach (var version in document.Versions)
@@ -150,6 +141,12 @@ namespace CapstoneProjectAPI.Services
                 if (File.Exists(filePath))
                     File.Delete(filePath);
             }
+            _context.AuditLogs.Add(new AuditLog()
+            {
+                PerformedByUserId = requestingUserId,
+                Action = AuditAction.DocumentWithdrawn,
+                Details = $"Document {documentId} that was uploaded by {requestingUserId} was withdrawn"
+            });
 
             _context.Documents.Remove(document);
             await _context.SaveChangesAsync();

@@ -5,12 +5,15 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
+using CapstoneProjectAPI.Filters;
+
 namespace CapstoneProjectAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
     [EnableRateLimiting("FixedPerUser")]
+    [TypeFilter(typeof(UserActiveFilter))]
 
     public class DocumentController : ControllerBase
     {
