@@ -282,5 +282,27 @@ namespace CapstoneProjectAPI.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task ReactivateUser(int userId, int adminUserId)
+        {
+            var user = await _context.Users.FindAsync(userId)
+                ?? throw new EntityNotFoundException($"User with ID {userId} was not found.");
+
+            if (user.IsActive)
+                throw new InvalidOperationException("User is already active.");
+
+            user.IsActive = true;
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                PerformedByUserId = adminUserId,
+                Action = AuditAction.UserReactivated,
+                Details = $"Admin reactivated user '{user.Name}' (Email: {user.Email}).",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+        }
+        
+
     }
 }

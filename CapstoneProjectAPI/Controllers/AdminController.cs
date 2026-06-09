@@ -87,12 +87,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpPut("users/{id:int}/deactivate")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DeactivateUser(int id)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -103,6 +97,19 @@ namespace CapstoneProjectAPI.Controllers
 
             await _adminService.DeactivateUser(id, adminUserId);
             return Ok(new { message = "User deactivated successfully." });
+        }
+
+        [HttpPut("users/{id:int}/reactivate")]
+        public async Task<IActionResult> ReactivateUser(int id)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int adminUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            await _adminService.ReactivateUser(id, adminUserId);
+            return Ok(new { message = "User reactivated successfully." });
         }
     }
 }

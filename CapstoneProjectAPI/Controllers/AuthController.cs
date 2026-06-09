@@ -1,4 +1,3 @@
-using AutoMapper;
 using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
@@ -20,9 +19,6 @@ namespace CapstoneProjectAPI.Controllers
 
 
         [HttpPost("register")]
-        [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
 
@@ -33,9 +29,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpPost("login")]
-        [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authService.Login(request);

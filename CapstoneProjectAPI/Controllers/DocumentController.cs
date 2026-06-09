@@ -39,12 +39,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> WithdrawDocument(int id)
         {
 
@@ -61,10 +55,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("my-uploads")]
-        [ProducesResponseType(typeof(IEnumerable<UserDocumentResponseDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetMyUploadedDocuments([FromQuery] int pageNumber, [FromQuery] int pageSize)
         {
 
@@ -80,10 +70,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("pending-approvals")]
-        [ProducesResponseType(typeof(IEnumerable<UserDocumentResponseDto>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetDocumentsPendingApproval([FromQuery] int pageNumber, [FromQuery] int pageSize)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -97,13 +83,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpPut("{id:int}/reject")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> RejectDocument(int id, [FromBody] RejectDocumentRequestDto request)
         {
 
@@ -120,13 +99,6 @@ namespace CapstoneProjectAPI.Controllers
 
         [HttpPost("{id:int}/reupload")]
         [RequestSizeLimit(5 * 1024 * 1024)]
-        [ProducesResponseType(typeof(UploadDocumentResponseDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ReUploadDocumentVersion(int id, [FromForm] ReUploadDocumentRequestDto request)
         {
 
@@ -142,13 +114,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpPut("{id:int}/approve")]
-        [ProducesResponseType(typeof(ApproveDocumentResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ApproveDocument(int id, [FromBody] ApproveDocumentRequestDto request)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -162,13 +127,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpPut("{id:int}/transfer")]
-        [ProducesResponseType(typeof(ApproveDocumentResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> TransferDocument(int id, [FromBody] TransferDocumentRequestDto request)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -182,10 +140,6 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("{id:int}/file")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetDocumentFile(int id, [FromQuery] int? versionId = null)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
