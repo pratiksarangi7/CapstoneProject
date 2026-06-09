@@ -111,5 +111,20 @@ namespace CapstoneProjectAPI.Controllers
             await _adminService.ReactivateUser(id, adminUserId);
             return Ok(new { message = "User reactivated successfully." });
         }
+
+        [HttpPut("users/{id:int}/reject-pending-documents")]
+        public async Task<IActionResult> RejectPendingDocumentsOfUser(int id, [FromBody] RejectDocumentRequestDto request)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int adminUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            await _adminService.RejectAllPendingDocumentsOfUser(id, adminUserId, request.Reason);
+            return Ok(new { message = "All pending documents of the user have been rejected successfully." });
+        }
+
+        
     }
 }

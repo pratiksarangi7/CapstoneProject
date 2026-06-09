@@ -302,7 +302,66 @@ namespace CapstoneProjectAPI.Services
 
             await _context.SaveChangesAsync();
         }
-        
+
+        public async Task RejectAllPendingDocumentsOfUser(int userId, int adminUserId, string reason)
+        {
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+            if (!userExists)
+            {
+                throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            }
+
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new ArgumentException("Reason is required.");
+            }
+
+            var pendingDocuments = await _context.Documents
+                .Include(d => d.Versions)
+                .Where(d => d.CreatedByUserId == userId && d.DocumentStatus == DocumentStatus.PendingApproval)
+                .ToListAsync();
+
+            if (!pendingDocuments.Any())
+            {
+                return;
+            }
+
+            var timestamp = DateTimeOffset.UtcNow;
+
+            foreach (var document in pendingDocuments)
+            {
+                var currentVersion = document.Versions.FirstOrDefault(v => v.IsCurrentVersion)
+                    ?? document.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+
+                if (currentVersion != null)
+                {
+                    _context.ApprovalActions.Add(new ApprovalAction
+                    {
+                        DocumentId = document.Id,
+                        DocumentVersionId = currentVersion.Id,
+                        ApproverUserId = adminUserId,
+                        Action = ApprovalActionType.Rejected,
+                        Comments = reason,
+                        CreatedAt = timestamp
+                    });
+                }
+
+                document.DocumentStatus = DocumentStatus.Rejected;
+                document.CurrentApproverUserId = null;
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    PerformedByUserId = adminUserId,
+                    DocumentId = document.Id,
+                    DocumentVersionId = currentVersion?.Id,
+                    Action = AuditAction.DocumentRejected,
+                    Details = $"Document rejected by administrator. Reason: {reason}",
+                    CreatedAt = timestamp
+                });
+            }
+
+            await _context.SaveChangesAsync();
+        }
 
     }
 }

@@ -1,13 +1,10 @@
 using System.Security.Claims;
-using AutoMapper;
-using CapstoneProjectAPI.Exceptions;
+using CapstoneProjectAPI.Filters;
 using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-
-using CapstoneProjectAPI.Filters;
 
 namespace CapstoneProjectAPI.Controllers
 {
@@ -37,6 +34,19 @@ namespace CapstoneProjectAPI.Controllers
 
             var userDetails = await _userService.GetUserDetailsAsync(userId);
             return Ok(userDetails);
+        }
+
+        [HttpPut("me/change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            await _userService.ChangePasswordAsync(userId, request);
+            return Ok(new { message = "Password changed successfully." });
         }
     }
 }

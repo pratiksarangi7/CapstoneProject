@@ -12,6 +12,8 @@ namespace CapstoneProjectAPI.Models.Enums
         DocumentForwarded,
         DocumentWithdrawn,
         UserDeactivated,
-        UserReactivated
+        UserReactivated,
+        DepartmentDeleted,
+        PasswordChanged
     }
 }
