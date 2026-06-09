@@ -14,7 +14,7 @@ namespace CapstoneProjectAPI.Services
         {
             _context = context;
         }
-        public async Task<PagedResult<AuditLogResponseDto>> GetAuditLogs(AuditAction? action, int pageNumber = 1, int pageSize = 10)
+        public async Task<PagedResult<AuditLogResponseDto>> GetAuditLogs(AuditAction? action, int? userId, int pageNumber = 1, int pageSize = 10)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 0 || pageSize > 100) pageSize = 10;
@@ -24,6 +24,10 @@ namespace CapstoneProjectAPI.Services
             if (action.HasValue)
             {
                 query = query.Where(al => al.Action == action.Value);
+            }
+            if (userId.HasValue)
+            {
+                query = query.Where(al => al.PerformedByUserId == userId);
             }
 
             query = query.Include(al => al.PerformedByUser)

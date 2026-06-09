@@ -18,10 +18,11 @@ namespace CapstoneProjectAPI.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAuditActions(
             [FromQuery] AuditAction? action,
+            [FromQuery] int? userId,
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10)
         {
-            var results = await _auditLogService.GetAuditLogs(action, pageNumber, pageSize);
+            var results = await _auditLogService.GetAuditLogs(action, userId, pageNumber, pageSize);
             return Ok(results);
         }
 
