@@ -1,3 +1,4 @@
+using System.Text;
 using AutoMapper;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Exceptions;
@@ -363,5 +364,132 @@ namespace CapstoneProjectAPI.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task<BulkUploadUserResultDto> BulkUploadUsersAsync(IFormFile file, int adminUserId)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("CSV file is required.");
+            var allowedMimeTypes = new[] { "text/csv", "application/csv", "application/vnd.ms-excel" };
+
+            if (!allowedMimeTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Only .csv files are accepted.");
+            }
+            var result = new BulkUploadUserResultDto();
+            var timestamp = DateTimeOffset.UtcNow;
+
+            using var reader = new StreamReader(file.OpenReadStream());
+            var allContent = await reader.ReadToEndAsync();
+            var lines = allContent.Split('\n', StringSplitOptions.None);
+
+            if (lines.Length == 0)
+                throw new ArgumentException("CSV file is empty.");
+
+            int rowNumber = 1;
+            foreach (var rawLine in lines.Skip(1))
+            {
+                var line = rawLine.Trim('\r', ' ');
+                rowNumber++;
+
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                var columns = line.Split(',');
+
+                if (columns.Length < 4)
+                {
+                    result.Results.Add(new BulkUploadUserRowResult
+                    {
+                        RowNumber = rowNumber,
+                        Success = false,
+                        Error = "Row does not have all 4 required columns: Name, Email, Password, DepartmentId."
+                    });
+                    continue;
+                }
+
+                string name = columns[0].Trim();
+                string email = columns[1].Trim();
+                string password = columns[2].Trim();
+                string deptIdRaw = columns[3].Trim();
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Error = "Name is required." });
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Error = "Email is required." });
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+                {
+                    result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = "Password must be at least 6 characters." });
+                    continue;
+                }
+
+                if (!int.TryParse(deptIdRaw, out int departmentId) || departmentId <= 0)
+                {
+                    result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = $"Invalid DepartmentId '{deptIdRaw}'." });
+                    continue;
+                }
+
+                bool emailExists = await _context.Users.AnyAsync(u => u.Email == email);
+                if (emailExists)
+                {
+                    result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = $"A user with email '{email}' already exists." });
+                    continue;
+                }
+
+                bool deptExists = await _context.Departments.AnyAsync(d => d.Id == departmentId);
+                if (!deptExists)
+                {
+                    result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = $"Department with ID {departmentId} was not found." });
+                    continue;
+                }
+
+                var user = new User
+                {
+                    Name = name,
+                    Email = email,
+                    PasswordHash = HashPasswordForBulk(password),
+                    DepartmentId = departmentId
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    PerformedByUserId = adminUserId,
+                    Action = AuditAction.UserRegistered,
+                    Details = $"Admin bulk-uploaded user '{name}' (Email: {email}).",
+                    CreatedAt = timestamp
+                });
+                await _context.SaveChangesAsync();
+
+                result.Results.Add(new BulkUploadUserRowResult
+                {
+                    RowNumber = rowNumber,
+                    Success = true,
+                    Email = email,
+                    Name = name
+                });
+            }
+
+            result.TotalRows = result.Results.Count;
+            result.SuccessCount = result.Results.Count(r => r.Success);
+            result.FailureCount = result.Results.Count(r => !r.Success);
+
+            return result;
+        }
+
+        private static string HashPasswordForBulk(string password)
+        {
+            using var hmac = new System.Security.Cryptography.HMACSHA256();
+            byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return $"{Convert.ToBase64String(hmac.Key)}:{Convert.ToBase64String(hash)}";
+        }
     }
 }

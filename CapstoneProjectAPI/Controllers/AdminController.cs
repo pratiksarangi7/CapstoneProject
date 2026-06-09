@@ -125,6 +125,18 @@ namespace CapstoneProjectAPI.Controllers
             return Ok(new { message = "All pending documents of the user have been rejected successfully." });
         }
 
-        
+        [HttpPost("users/bulk-upload")]
+        [RequestSizeLimit(2 * 1024 * 1024)]
+        public async Task<IActionResult> BulkUploadUsers([FromForm] IFormFile file)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int adminUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            var result = await _adminService.BulkUploadUsersAsync(file, adminUserId);
+            return Ok(result);
+        }
     }
 }
