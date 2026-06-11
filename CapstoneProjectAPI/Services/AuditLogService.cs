@@ -1,6 +1,5 @@
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Misc;
-using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +13,7 @@ namespace CapstoneProjectAPI.Services
         {
             _context = context;
         }
-        public async Task<PagedResult<AuditLogResponseDto>> GetAuditLogs(AuditAction? action, int? userId, int pageNumber = 1, int pageSize = 10)
+        public async Task<PagedResult<AuditLogResponseDto>> GetAuditLogs(AuditAction? action, int? userId = null, int pageNumber = 1, int pageSize = 10)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 0 || pageSize > 100) pageSize = 10;

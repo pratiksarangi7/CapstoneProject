@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
 using System;
@@ -9,6 +8,7 @@ using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Services;
 using CapstoneProjectAPI.Mappings;
 using CapstoneProjectAPI.Exceptions;
+using CapstoneProjectAPI.Models.Enums;
 
 namespace CapstoneProjectTest
 {
@@ -112,6 +112,128 @@ namespace CapstoneProjectTest
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Name, Is.EqualTo("Bob Admin"));
             Assert.That(result.IsAdmin, Is.True);
+        }
+
+        [Test]
+        public void ChangePasswordAsync_UserDoesNotExist_ThrowsEntityNotFoundException()
+        {
+            var request = new ChangePasswordRequestDto
+            {
+                OldPassword = "OldPassword123!",
+                NewPassword = "NewPassword123!"
+            };
+
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _userService.ChangePasswordAsync(999, request));
+        }
+
+        [Test]
+        public async Task ChangePasswordAsync_IncorrectOldPassword_ThrowsUnauthorizedAccessException()
+        {
+            var dept = new Department { Name = "IT Support" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User
+            {
+                Name = "John Doe",
+                Email = "john.doe@test.com",
+                PasswordHash = HashPasswordHelper("CorrectOldPassword123!"),
+                DepartmentId = dept.Id
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var request = new ChangePasswordRequestDto
+            {
+                OldPassword = "WrongOldPassword123!",
+                NewPassword = "NewPassword123!"
+            };
+
+            var ex = Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await _userService.ChangePasswordAsync(user.Id, request));
+            Assert.That(ex.Message, Is.EqualTo("Old password is incorrect."));
+        }
+
+        [Test]
+        public async Task ChangePasswordAsync_NewPasswordSameAsOld_ThrowsArgumentException()
+        {
+            var dept = new Department { Name = "IT Support" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User
+            {
+                Name = "John Doe",
+                Email = "john.doe@test.com",
+                PasswordHash = HashPasswordHelper("SamePassword123!"),
+                DepartmentId = dept.Id
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var request = new ChangePasswordRequestDto
+            {
+                OldPassword = "SamePassword123!",
+                NewPassword = "SamePassword123!"
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userService.ChangePasswordAsync(user.Id, request));
+            Assert.That(ex.Message, Is.EqualTo("New password must be different from the old password."));
+        }
+
+        [Test]
+        public async Task ChangePasswordAsync_ValidRequest_ChangesPasswordAndCreatesAuditLog()
+        {
+            var dept = new Department { Name = "IT Support" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User
+            {
+                Name = "John Doe",
+                Email = "john.doe@test.com",
+                PasswordHash = HashPasswordHelper("OldPassword123!"),
+                DepartmentId = dept.Id
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var oldPasswordHash = user.PasswordHash;
+
+            var request = new ChangePasswordRequestDto
+            {
+                OldPassword = "OldPassword123!",
+                NewPassword = "NewPassword123!"
+            };
+
+            await _userService.ChangePasswordAsync(user.Id, request);
+
+            var updatedUser = await _context.Users.FindAsync(user.Id);
+            Assert.That(updatedUser, Is.Not.Null);
+            Assert.That(updatedUser.PasswordHash, Is.Not.EqualTo(oldPasswordHash));
+
+            var secondRequest = new ChangePasswordRequestDto
+            {
+                OldPassword = "NewPassword123!",
+                NewPassword = "AnotherNewPassword123!"
+            };
+            Assert.DoesNotThrowAsync(async () => await _userService.ChangePasswordAsync(user.Id, secondRequest));
+
+            var auditLog = await _context.AuditLogs.FirstOrDefaultAsync(al => al.PerformedByUserId == user.Id);
+            Assert.That(auditLog, Is.Not.Null);
+            Assert.That(auditLog.Action, Is.EqualTo(AuditAction.PasswordChanged));
+            Assert.That(auditLog.Details, Is.EqualTo($"User '{user.Name}' changed their password."));
+        }
+
+        private static string HashPasswordHelper(string password)
+        {
+            using var hmac = new System.Security.Cryptography.HMACSHA256();
+            byte[] hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+            string keyB64 = Convert.ToBase64String(hmac.Key);
+            string hashB64 = Convert.ToBase64String(hash);
+            return $"{keyB64}:{hashB64}";
         }
     }
 }

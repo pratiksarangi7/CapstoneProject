@@ -13,7 +13,6 @@ namespace CapstoneProjectAPI.Models
         public int TargetDepartmentId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
         public User CreatedByUser { get; set; } = null!;
         public User? CurrentApprover { get; set; }
         public Department TargetDepartment { get; set; } = null!;

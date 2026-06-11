@@ -163,7 +163,7 @@ public enum DocumentStatus
     PendingL3,
     ApprovedL1,
     ApprovedL2,
-    ApprovedL3,   // Terminal: "Fully Approved"
+    ApprovedL3,   
     RejectedL1,
     RejectedL2,
     RejectedL3

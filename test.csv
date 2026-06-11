@@ -1,0 +1,6 @@
+Name,Email,Password,DepartmentId
+Alice Smith,alice@example.com,securePass123,1
+Bob Jones,bob@example.com,short,1
+,missingname@example.com,validPassword123,2
+Charlie Brown,,anotherPassword123,3
+Diana Prince,diana@example.com,superSecret999,999
