@@ -2,7 +2,6 @@
 ![ER DIAGRAM](ER_Diagram.png)
 ## 
 ## User Flow Diagram
-### Multi-Department Flow (Mermaid)
 
 ```mermaid
 flowchart TD
