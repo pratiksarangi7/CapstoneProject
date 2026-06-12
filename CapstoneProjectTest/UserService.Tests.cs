@@ -9,6 +9,8 @@ using CapstoneProjectAPI.Services;
 using CapstoneProjectAPI.Mappings;
 using CapstoneProjectAPI.Exceptions;
 using CapstoneProjectAPI.Models.Enums;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace CapstoneProjectTest
 {
@@ -34,7 +36,8 @@ namespace CapstoneProjectTest
             }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             _mapper = mappingConfig.CreateMapper();
-            _userService = new UserService(_context, _mapper);
+            var mockLogger = new Mock<ILogger<UserService>>();
+            _userService = new UserService(_context, _mapper, mockLogger.Object);
         }
 
         [TearDown]
@@ -225,6 +228,34 @@ namespace CapstoneProjectTest
             Assert.That(auditLog, Is.Not.Null);
             Assert.That(auditLog.Action, Is.EqualTo(AuditAction.PasswordChanged));
             Assert.That(auditLog.Details, Is.EqualTo($"User '{user.Name}' changed their password."));
+        }
+
+        [Test]
+        public async Task ChangePasswordAsync_VerifyPasswordThrowsException_ThrowsUnauthorizedAccessException()
+        {
+            var dept = new Department { Name = "IT Support" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User
+            {
+                Name = "John Doe",
+                Email = "john.doe@test.com",
+                PasswordHash = "invalid-base64:invalid-base64@@@",
+                DepartmentId = dept.Id
+            };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var request = new ChangePasswordRequestDto
+            {
+                OldPassword = "AnyPassword123!",
+                NewPassword = "NewPassword123!"
+            };
+
+            var ex = Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await _userService.ChangePasswordAsync(user.Id, request));
+            Assert.That(ex.Message, Is.EqualTo("Old password is incorrect."));
         }
 
         private static string HashPasswordHelper(string password)

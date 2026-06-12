@@ -2,6 +2,7 @@ using Moq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
@@ -33,7 +34,8 @@ namespace CapstoneProjectTest
             _mockEnv = new Mock<IWebHostEnvironment>();
             _mockEnv.Setup(e => e.ContentRootPath).Returns(TestContext.CurrentContext.TestDirectory);
 
-            _documentService = new DocumentService(_context, _mockEnv.Object);
+            var mockLogger = new Mock<ILogger<DocumentService>>();
+            _documentService = new DocumentService(_context, _mockEnv.Object, mockLogger.Object);
         }
 
         [TearDown]

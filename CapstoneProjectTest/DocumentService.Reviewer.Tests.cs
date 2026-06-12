@@ -376,14 +376,28 @@ namespace CapstoneProjectTest
             _context.Documents.Add(document);
             await _context.SaveChangesAsync();
 
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
             var request = new ApproveDocumentRequestDto
             {
                 Action = ApproveDocumentAction.ApproveAndTransfer,
                 TargetUserId = targetUser.Id
             };
 
-            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await _documentService.ApproveDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("ApproveAndTransfer requires the target user to belong to a different department. Use ApproveAndForward to escalate within the same department."));
         }
 
         [Test]
@@ -601,6 +615,462 @@ namespace CapstoneProjectTest
 
             Assert.ThrowsAsync<ArgumentException>(async () =>
                 await _documentService.TransferDocumentAsync(document.Id, request, approver.Id));
+        }
+
+        [Test]
+        public void ApproveDocumentAsync_DocumentNotFound_ThrowsEntityNotFoundException()
+        {
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = ApproveDocumentAction.ApproveEntirely
+            };
+
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.ApproveDocumentAsync(9999, request, 1));
+        }
+
+        [Test]
+        public async Task ApproveDocumentAsync_CurrentApproverNotFoundInDatabase_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = 9999
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = ApproveDocumentAction.ApproveEntirely
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.ApproveDocumentAsync(document.Id, request, 9999));
+            Assert.That(ex.Message, Is.EqualTo("Approver user not found."));
+        }
+
+        [Test]
+        public async Task ApproveDocumentAsync_CurrentApproverHasNoManager_ThrowsInvalidOperationException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id, ManagerId = null };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = ApproveDocumentAction.ApproveAndForward,
+                Comments = "Forward"
+            };
+
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _documentService.ApproveDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("Cannot forward: the current approver has no manager in this department."));
+        }
+
+        [Test]
+        public async Task ApproveDocumentAsync_CurrentApproversManagerNotFoundInDatabase_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id, ManagerId = 8888 };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = ApproveDocumentAction.ApproveAndForward,
+                Comments = "Forward"
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.ApproveDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("Manager user not found."));
+        }
+
+        [Test]
+        public async Task ApproveDocumentAsync_ApproveAndTransfer_TargetUserIdNull_ThrowsArgumentException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = ApproveDocumentAction.ApproveAndTransfer,
+                TargetUserId = null
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _documentService.ApproveDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("TargetUserId is required when action is ApproveAndTransfer."));
+        }
+
+        [Test]
+        public async Task ApproveDocumentAsync_ApproveAndTransfer_TargetUserDoesNotExist_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = ApproveDocumentAction.ApproveAndTransfer,
+                TargetUserId = 9999
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.ApproveDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("Target user with ID 9999 was not found."));
+        }
+
+        [Test]
+        public async Task ApproveDocumentAsync_UnknownAction_ThrowsArgumentException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new ApproveDocumentRequestDto
+            {
+                Action = (ApproveDocumentAction)999,
+                Comments = "Unknown Action"
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _documentService.ApproveDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("Unknown approval action '999'."));
+        }
+
+        [Test]
+        public void TransferDocumentAsync_DocumentNotFound_ThrowsEntityNotFoundException()
+        {
+            var request = new TransferDocumentRequestDto
+            {
+                TargetUserId = 1,
+                Comments = "Transfer"
+            };
+
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.TransferDocumentAsync(9999, request, 1));
+        }
+
+        [Test]
+        public async Task TransferDocumentAsync_UserNotCurrentApprover_ThrowsUnauthorizedAccessException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var otherUser = new User { Name = "Other", Email = "other@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, approver, otherUser);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var request = new TransferDocumentRequestDto
+            {
+                TargetUserId = otherUser.Id,
+                Comments = "Transfer"
+            };
+
+            var ex = Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await _documentService.TransferDocumentAsync(document.Id, request, otherUser.Id));
+            Assert.That(ex.Message, Is.EqualTo("You are not authorised to transfer this document."));
+        }
+
+        [Test]
+        public async Task TransferDocumentAsync_DocumentNotPendingApproval_ThrowsInvalidOperationException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var otherUser = new User { Name = "Other", Email = "other@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, approver, otherUser);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.Approved,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var request = new TransferDocumentRequestDto
+            {
+                TargetUserId = otherUser.Id,
+                Comments = "Transfer"
+            };
+
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _documentService.TransferDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("Only documents with status 'PendingApproval' can be transferred. Current status is 'Approved'."));
+        }
+
+        [Test]
+        public async Task TransferDocumentAsync_TargetUserDoesNotExist_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new TransferDocumentRequestDto
+            {
+                TargetUserId = 9999,
+                Comments = "Transfer"
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.TransferDocumentAsync(document.Id, request, approver.Id));
+            Assert.That(ex.Message, Is.EqualTo("Target user with ID 9999 was not found."));
+        }
+
+        [Test]
+        public async Task TransferDocumentAsync_CurrentApproverNotFoundInDatabase_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var targetUser = new User { Name = "Target", Email = "target@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(uploader, targetUser);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = 8888
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var request = new TransferDocumentRequestDto
+            {
+                TargetUserId = targetUser.Id,
+                Comments = "Transfer"
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.TransferDocumentAsync(document.Id, request, 8888));
+            Assert.That(ex.Message, Is.EqualTo("Current approver user not found."));
         }
     }
 }

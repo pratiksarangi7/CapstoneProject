@@ -6,6 +6,8 @@ using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Services;
 using CapstoneProjectAPI.Mappings;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace CapstoneProjectTest
 {
@@ -39,7 +41,8 @@ namespace CapstoneProjectTest
                 cfg.AddProfile<MappingProfile>();
             }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
             _mapper = mappingConfig.CreateMapper();
-            _authService = new AuthenticationService(_context, _configuration, _mapper);
+            var mockLogger = new Mock<ILogger<AuthenticationService>>();
+            _authService = new AuthenticationService(_context, _configuration, _mapper, mockLogger.Object);
         }
         [TearDown]
         public void TearDown()
@@ -47,6 +50,7 @@ namespace CapstoneProjectTest
             _context.Database.EnsureDeleted();
             _context.Dispose();
         }
+        #region Register
         [Test]
         public async Task Register_ValidRequest_ReturnsResponseAndCreatesAuditLog()
         {
@@ -72,6 +76,102 @@ namespace CapstoneProjectTest
             Assert.That(auditLog.Action.ToString(), Is.EqualTo("UserRegistered"));
         }
 
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public void Register_EmptyEmail_ThrowsArgumentException(string? email)
+        {
+            var request = new RegisterRequestDto
+            {
+                Name = "John Doe",
+                Email = email!,
+                Password = "Password123!",
+                DepartmentId = 1
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _authService.Register(request));
+            Assert.That(ex.Message, Is.EqualTo("Email is required."));
+        }
+
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public void Register_EmptyPassword_ThrowsArgumentException(string? password)
+        {
+            var request = new RegisterRequestDto
+            {
+                Name = "John Doe",
+                Email = "john.doe@test.com",
+                Password = password!,
+                DepartmentId = 1
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _authService.Register(request));
+            Assert.That(ex.Message, Is.EqualTo("Password is required."));
+        }
+
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public void Register_EmptyName_ThrowsArgumentException(string? name)
+        {
+            var request = new RegisterRequestDto
+            {
+                Name = name!,
+                Email = "john.doe@test.com",
+                Password = "Password123!",
+                DepartmentId = 1
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _authService.Register(request));
+            Assert.That(ex.Message, Is.EqualTo("Name is required."));
+        }
+
+        [Test]
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void Register_InvalidDepartmentId_ThrowsArgumentException(int departmentId)
+        {
+            var request = new RegisterRequestDto
+            {
+                Name = "John Doe",
+                Email = "john.doe@test.com",
+                Password = "Password123!",
+                DepartmentId = departmentId
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _authService.Register(request));
+            Assert.That(ex.Message, Is.EqualTo("A valid Department ID is required."));
+        }
+
+        [Test]
+        public async Task Register_EmailAlreadyExists_ThrowsInvalidOperationException()
+        {
+            var request1 = new RegisterRequestDto
+            {
+                Name = "John Doe",
+                Email = "duplicate@test.com",
+                Password = "Password123!",
+                DepartmentId = 1
+            };
+            await _authService.Register(request1);
+
+            var request2 = new RegisterRequestDto
+            {
+                Name = "Jane Doe",
+                Email = "duplicate@test.com",
+                Password = "AnotherPassword123!",
+                DepartmentId = 1
+            };
+
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await _authService.Register(request2));
+            Assert.That(ex.Message, Is.EqualTo("A user with email 'duplicate@test.com' already exists."));
+        }
+        #endregion
+        #region Login
         [Test]
         public async Task Login_ValidCredentials_ReturnsResponseWithTokenAndCreatesAuditLog()
         {
@@ -104,7 +204,7 @@ namespace CapstoneProjectTest
             Assert.That(auditLog, Is.Not.Null);
             Assert.That(auditLog.Action.ToString(), Is.EqualTo("UserRegistered"));
         }
-
+        #endregion
         [Test]
         public async Task Login_InvalidPassword_ThrowsUnauthorizedAccessException()
         {
@@ -136,6 +236,60 @@ namespace CapstoneProjectTest
             };
 
             Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await _authService.Login(loginRequest));
+        }
+
+        [Test]
+        public async Task Login_DeactivatedUser_ThrowsUnauthorizedAccessException()
+        {
+            var registerRequest = new RegisterRequestDto
+            {
+                Name = "Deactivated User",
+                Email = "deactivated@test.com",
+                Password = "Password123!",
+                DepartmentId = 1
+            };
+            await _authService.Register(registerRequest);
+
+            var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == "deactivated@test.com");
+            Assert.That(dbUser, Is.Not.Null);
+            dbUser!.IsActive = false;
+            await _context.SaveChangesAsync();
+
+            var loginRequest = new LoginRequestDto
+            {
+                Email = "deactivated@test.com",
+                Password = "Password123!"
+            };
+
+            var ex = Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await _authService.Login(loginRequest));
+            Assert.That(ex.Message, Is.EqualTo("Your account has been deactivated. Please contact your administrator."));
+        }
+
+        [Test]
+        public async Task Login_VerifyPasswordThrowsException_ThrowsUnauthorizedAccessException()
+        {
+            var registerRequest = new RegisterRequestDto
+            {
+                Name = "Corrupted Pass User",
+                Email = "corrupted.pass@test.com",
+                Password = "Password123!",
+                DepartmentId = 1
+            };
+            await _authService.Register(registerRequest);
+
+            var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == "corrupted.pass@test.com");
+            Assert.That(dbUser, Is.Not.Null);
+            dbUser!.PasswordHash = "invalid-base64:invalid-base64@@@";
+            await _context.SaveChangesAsync();
+
+            var loginRequest = new LoginRequestDto
+            {
+                Email = "corrupted.pass@test.com",
+                Password = "Password123!"
+            };
+
+            var ex = Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await _authService.Login(loginRequest));
+            Assert.That(ex.Message, Is.EqualTo("Invalid email or password."));
         }
     }
 }

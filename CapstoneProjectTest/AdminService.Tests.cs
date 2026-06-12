@@ -9,6 +9,7 @@ using CapstoneProjectAPI.Exceptions;
 using CapstoneProjectAPI.Models.Enums;
 using Moq;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Text;
 
@@ -36,7 +37,8 @@ namespace CapstoneProjectTest
             }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             _mapper = mappingConfig.CreateMapper();
-            _adminService = new AdminService(_context, _mapper);
+            var mockLogger = new Mock<ILogger<AdminService>>();
+            _adminService = new AdminService(_context, _mapper, mockLogger.Object);
         }
 
         [TearDown]
@@ -1031,6 +1033,89 @@ namespace CapstoneProjectTest
             Assert.That(logs.Count, Is.EqualTo(2));
             Assert.That(logs.Any(al => al.Action == AuditAction.UserRegistered && al.Details!.Contains("new1@test.com")));
             Assert.That(logs.Any(al => al.Action == AuditAction.UserRegistered && al.Details!.Contains("new2@test.com")));
+        }
+
+        [Test]
+        public void BulkUploadUsersAsync_LinesLengthZero_ThrowsArgumentException()
+        {
+            var fileMock = new Mock<IFormFile>();
+            var ms = new MemoryStream(Encoding.UTF8.GetBytes(string.Empty));
+            fileMock.Setup(_ => _.OpenReadStream()).Returns(ms);
+            fileMock.Setup(_ => _.Length).Returns(1);
+            fileMock.Setup(_ => _.ContentType).Returns("text/csv");
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _adminService.BulkUploadUsersAsync(fileMock.Object, 100));
+            Assert.That(ex.Message, Is.EqualTo("CSV file is empty."));
+        }
+
+        [Test]
+        public async Task GetAllDocuments_ReturnsPagedDocuments_Successfully()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "up@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            for (int i = 1; i <= 5; i++)
+            {
+                var doc = new Document
+                {
+                    Title = $"Admin Doc {i}",
+                    CreatedByUserId = uploader.Id,
+                    TargetDepartmentId = dept.Id,
+                    DocumentStatus = DocumentStatus.PendingApproval,
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-i)
+                };
+                _context.Documents.Add(doc);
+                await _context.SaveChangesAsync();
+
+                var version = new DocumentVersion { DocumentId = doc.Id, VersionNumber = 1, IsCurrentVersion = true, UploadedByUserId = uploader.Id };
+                _context.DocumentVersions.Add(version);
+                await _context.SaveChangesAsync();
+            }
+
+            var result = await _adminService.GetAllDocuments(pageNumber: 1, pageSize: 3);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.TotalCount, Is.EqualTo(5));
+            Assert.That(result.Items.Count, Is.EqualTo(3));
+            Assert.That(result.PageNumber, Is.EqualTo(1));
+            Assert.That(result.PageSize, Is.EqualTo(3));
+        }
+
+        [Test]
+        public async Task GetAllDocuments_CoercesInvalidParameters()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "up@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var doc = new Document { Title = "Doc 1", CreatedByUserId = uploader.Id, TargetDepartmentId = dept.Id };
+            _context.Documents.Add(doc);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion { DocumentId = doc.Id, VersionNumber = 1, IsCurrentVersion = true, UploadedByUserId = uploader.Id };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            // Test pageNumber < 1 (coerces to 1)
+            var result1 = await _adminService.GetAllDocuments(pageNumber: -5, pageSize: 10);
+            Assert.That(result1.PageNumber, Is.EqualTo(1));
+
+            // Test pageSize < 1 (coerces to 10)
+            var result2 = await _adminService.GetAllDocuments(pageNumber: 1, pageSize: 0);
+            Assert.That(result2.PageSize, Is.EqualTo(10));
+
+            // Test pageSize > 100 (coerces to 10)
+            var result3 = await _adminService.GetAllDocuments(pageNumber: 1, pageSize: 150);
+            Assert.That(result3.PageSize, Is.EqualTo(10));
         }
     }
 }

@@ -153,5 +153,32 @@ namespace CapstoneProjectTest
             Assert.That(item.Action, Is.EqualTo("DocumentUploaded"));
             Assert.That(item.Details, Is.EqualTo("Uploaded document version 2"));
         }
+
+        [Test]
+        public async Task GetAuditLogs_WithUserIdFilter_ReturnsOnlyMatchingAuditLogs()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user1 = new User { Name = "User One", Email = "user1@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var user2 = new User { Name = "User Two", Email = "user2@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(user1, user2);
+            await _context.SaveChangesAsync();
+
+            _context.AuditLogs.AddRange(
+                new AuditLog { Action = AuditAction.UserRegistered, PerformedByUserId = user1.Id, Details = "User1 Reg", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10) },
+                new AuditLog { Action = AuditAction.UserRegistered, PerformedByUserId = user2.Id, Details = "User2 Reg", CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5) }
+            );
+            await _context.SaveChangesAsync();
+
+            var result = await _auditLogService.GetAuditLogs(action: null, userId: user1.Id, pageNumber: 1, pageSize: 10);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.TotalCount, Is.EqualTo(1));
+            Assert.That(result.Items.Count, Is.EqualTo(1));
+            Assert.That(result.Items.First().PerformedByUserId, Is.EqualTo(user1.Id));
+            Assert.That(result.Items.First().Details, Is.EqualTo("User1 Reg"));
+        }
     }
 }

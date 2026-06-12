@@ -233,6 +233,13 @@ namespace CapstoneProjectTest
         }
 
         [Test]
+        public void WithdrawDocumentAsync_DocumentNotFound_ThrowsEntityNotFoundException()
+        {
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.WithdrawDocumentAsync(9999, 1));
+        }
+
+        [Test]
         public async Task GetDocumentsUploadedByUserAsync_ValidUser_ReturnsPagedDocuments()
         {
             var dept = new Department { Name = "HR" };
@@ -427,6 +434,507 @@ namespace CapstoneProjectTest
             var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
             Assert.ThrowsAsync<ArgumentException>(async () => 
                 await _documentService.ReUploadDocumentVersionAsync(1, request, 1));
+        }
+
+        [Test]
+        public void UploadDocument_FileIsNull_ThrowsArgumentException()
+        {
+            var request = new UploadDocumentRequestDto
+            {
+                Title = "Test Document",
+                Description = "Description",
+                TargetDepartmentId = 1,
+                File = null!
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _documentService.UploadDocument(request, 1));
+            Assert.That(ex.Message, Is.EqualTo("File is required."));
+        }
+
+        [Test]
+        public void UploadDocument_FileLengthZero_ThrowsArgumentException()
+        {
+            var mockFile = CreateMockFile("empty.pdf", "application/pdf", 0);
+            var request = new UploadDocumentRequestDto
+            {
+                Title = "Test Document",
+                Description = "Description",
+                TargetDepartmentId = 1,
+                File = mockFile.Object
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _documentService.UploadDocument(request, 1));
+            Assert.That(ex.Message, Is.EqualTo("File is required."));
+        }
+
+        [Test]
+        public async Task UploadDocument_UploaderNull_ThrowsEntityNotFoundException()
+        {
+            var mockFile = CreateMockFile("test.pdf", "application/pdf", 100);
+            var request = new UploadDocumentRequestDto
+            {
+                Title = "Test Document",
+                Description = "Description",
+                TargetDepartmentId = 1,
+                File = mockFile.Object
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.UploadDocument(request, 999));
+            Assert.That(ex.Message, Is.EqualTo("Uploader user not found."));
+        }
+
+        [Test]
+        public async Task UploadDocument_TargetDepartmentDoesNotExist_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User 
+            { 
+                Name = "Uploader User", 
+                Email = "uploader@test.com", 
+                PasswordHash = "hash", 
+                DepartmentId = dept.Id 
+            };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("test.pdf", "application/pdf", 100);
+            var request = new UploadDocumentRequestDto
+            {
+                Title = "Test Document",
+                Description = "Description",
+                TargetDepartmentId = 999,
+                File = mockFile.Object
+            };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.UploadDocument(request, uploader.Id));
+            Assert.That(ex.Message, Is.EqualTo("Target department not found."));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_NoVersionsExist_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.GetDocumentFileAsync(document.Id, uploader.Id));
+            Assert.That(ex.Message, Is.EqualTo($"No version found for document {document.Id}."));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_NoCurrentVersionSet_FallsBackToHighestVersionNumber()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version1 = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "version1.pdf",
+                StoredFileName = "stored_version1.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = false,
+                UploadedByUserId = uploader.Id
+            };
+            var version2 = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 2,
+                OriginalFileName = "version2.pdf",
+                StoredFileName = "stored_version2.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = false,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.AddRange(version1, version2);
+            await _context.SaveChangesAsync();
+
+            Directory.CreateDirectory(_testUploadsFolder);
+            string physicalPath = Path.Combine(_testUploadsFolder, "stored_version2.pdf");
+            await File.WriteAllTextAsync(physicalPath, "dummy file contents");
+
+            var result = await _documentService.GetDocumentFileAsync(document.Id, uploader.Id);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.VersionNumber, Is.EqualTo(2));
+            Assert.That(result.OriginalFileName, Is.EqualTo("version2.pdf"));
+            Assert.That(result.FilePath, Is.EqualTo(physicalPath));
+        }
+
+        [Test]
+        public async Task GetDocumentsUploadedByUserAsync_WithVersionsAndApprovalActions_TriggersMappingCorrectly()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "Uploader User", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var approver = new User { Name = "Approver User", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(user, approver);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Doc with Version",
+                CreatedByUserId = user.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                FileSize = 100,
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = user.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var action = new ApprovalAction
+            {
+                DocumentId = document.Id,
+                DocumentVersionId = version.Id,
+                ApproverUserId = approver.Id,
+                Action = ApprovalActionType.Approved,
+                Comments = "Looks perfect",
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            _context.ApprovalActions.Add(action);
+            await _context.SaveChangesAsync();
+
+            var result = await _documentService.GetDocumentsUploadedByUserAsync(user.Id, pageNumber: 1, pageSize: 10);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Items.Count, Is.EqualTo(1));
+            var mappedDoc = result.Items.First();
+            Assert.That(mappedDoc.Versions.Count, Is.EqualTo(1));
+            
+            var mappedVersion = mappedDoc.Versions.First();
+            Assert.That(mappedVersion.Id, Is.EqualTo(version.Id));
+            Assert.That(mappedVersion.OriginalFileName, Is.EqualTo("test.pdf"));
+            Assert.That(mappedVersion.UploadedByUserName, Is.EqualTo("Uploader User"));
+
+            Assert.That(mappedVersion.ApprovalAction, Is.Not.Null);
+            Assert.That(mappedVersion.ApprovalAction!.Action, Is.EqualTo("Approved"));
+            Assert.That(mappedVersion.ApprovalAction.Comments, Is.EqualTo("Looks perfect"));
+            Assert.That(mappedVersion.ApprovalAction.ApproverUserName, Is.EqualTo("Approver User"));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_UserNotAuthorizedToView_ThrowsUnauthorizedAccessException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var unauthorizedUser = new User { Name = "Unauthorized", Email = "unauth@test.com", PasswordHash = "hash", DepartmentId = dept.Id, IsAdmin = false };
+            _context.Users.AddRange(uploader, unauthorizedUser);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Confidential Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = null,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var ex = Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await _documentService.GetDocumentFileAsync(document.Id, unauthorizedUser.Id));
+            Assert.That(ex.Message, Is.EqualTo("You are not authorised to view this document."));
+        }
+
+        [Test]
+        public void GetDocumentFileAsync_DocumentDoesNotExist_ThrowsEntityNotFoundException()
+        {
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.GetDocumentFileAsync(9999, 1));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_RequestingUserDoesNotExist_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.GetDocumentFileAsync(document.Id, 9999));
+            Assert.That(ex.Message, Is.EqualTo("Requesting user not found."));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_SpecifiedVersionIdNotFound_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "stored.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.GetDocumentFileAsync(document.Id, uploader.Id, versionId: 9999));
+            Assert.That(ex.Message, Is.EqualTo($"Version with ID 9999 was not found on document {document.Id}."));
+        }
+
+        [Test]
+        public async Task UploadDocument_DifferentDepartment_NoSameLevelApprover_FindsHigherLevelApprover()
+        {
+            var deptA = new Department { Name = "HR" };
+            var deptB = new Department { Name = "Engineering" };
+            _context.Departments.AddRange(deptA, deptB);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = deptA.Id, Level = 2 };
+            var highApprover = new User { Name = "High Approver", Email = "high@test.com", PasswordHash = "hash", DepartmentId = deptB.Id, Level = 3 };
+            var higherApprover = new User { Name = "Higher Approver", Email = "higher@test.com", PasswordHash = "hash", DepartmentId = deptB.Id, Level = 4 };
+            _context.Users.AddRange(uploader, highApprover, higherApprover);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("test.png", "image/png", 500);
+
+            var request = new UploadDocumentRequestDto
+            {
+                Title = "Cross-Dept Document",
+                TargetDepartmentId = deptB.Id,
+                File = mockFile.Object
+            };
+
+            var result = await _documentService.UploadDocument(request, uploader.Id);
+
+            Assert.That(result.CurrentApproverUserId, Is.EqualTo(highApprover.Id));
+            Assert.That(result.DocumentStatus, Is.EqualTo("PendingApproval"));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_PhysicalFileNotFound_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "test.pdf",
+                StoredFileName = "nonexistent_stored_file.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.GetDocumentFileAsync(document.Id, uploader.Id));
+            Assert.That(ex.Message, Is.EqualTo($"Physical file for version {version.VersionNumber} of document {document.Id} was not found on the server."));
+        }
+
+        [Test]
+        public void ReUploadDocumentVersionAsync_FileIsNull_ThrowsArgumentException()
+        {
+            var request = new ReUploadDocumentRequestDto { File = null! };
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _documentService.ReUploadDocumentVersionAsync(1, request, 1));
+        }
+
+        [Test]
+        public void ReUploadDocumentVersionAsync_FileLengthZero_ThrowsArgumentException()
+        {
+            var mockFile = CreateMockFile("empty.pdf", "application/pdf", 0);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _documentService.ReUploadDocumentVersionAsync(1, request, 1));
+        }
+
+        [Test]
+        public async Task ReUploadDocumentVersionAsync_UploaderNull_ThrowsEntityNotFoundException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Rejected Document",
+                CreatedByUserId = 9999,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.Rejected
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("new.pdf", "application/pdf", 100);
+            var request = new ReUploadDocumentRequestDto { File = mockFile.Object };
+
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _documentService.ReUploadDocumentVersionAsync(document.Id, request, 9999));
+            Assert.That(ex.Message, Is.EqualTo("Uploader user not found."));
+        }
+
+        [Test]
+        public async Task GetDocumentFileAsync_WithValidVersionId_ReturnsFileSuccessfully()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var document = new Document
+            {
+                Title = "Test Document",
+                Description = "Description",
+                CreatedByUserId = uploader.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                TargetDepartmentId = dept.Id,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            var version = new DocumentVersion
+            {
+                DocumentId = document.Id,
+                VersionNumber = 1,
+                OriginalFileName = "version1.pdf",
+                StoredFileName = "stored_version1.pdf",
+                MimeType = "application/pdf",
+                IsCurrentVersion = true,
+                UploadedByUserId = uploader.Id
+            };
+            _context.DocumentVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            Directory.CreateDirectory(_testUploadsFolder);
+            string physicalPath = Path.Combine(_testUploadsFolder, "stored_version1.pdf");
+            await File.WriteAllTextAsync(physicalPath, "dummy content");
+
+            var result = await _documentService.GetDocumentFileAsync(document.Id, uploader.Id, versionId: version.Id);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.VersionNumber, Is.EqualTo(1));
+            Assert.That(result.OriginalFileName, Is.EqualTo("version1.pdf"));
+            Assert.That(result.FilePath, Is.EqualTo(physicalPath));
         }
     }
 }
