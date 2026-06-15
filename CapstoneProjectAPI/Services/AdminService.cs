@@ -7,6 +7,7 @@ using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CapstoneProjectAPI.Services
 {
@@ -14,11 +15,13 @@ namespace CapstoneProjectAPI.Services
     {
         public AppDbContext _context;
         private readonly IMapper _mapper;
+        private readonly ILogger<AdminService> _logger;
 
-        public AdminService(AppDbContext context, IMapper mapper)
+        public AdminService(AppDbContext context, IMapper mapper, ILogger<AdminService> logger)
         {
             _context = context;
             _mapper = mapper;
+            _logger = logger;
         }
         public async Task<PagedResult<UserDetailsResponseDto>> GetUsers(int pageNumber = 1, int pageSize = 10)
         {
@@ -46,22 +49,34 @@ namespace CapstoneProjectAPI.Services
 
         public async Task<bool> ChangeUserManager(ChangeUserManagerRequestDto request)
         {
-            var user = await _context.Users.FindAsync(request.UserId)
-                ?? throw new EntityNotFoundException("User not found");
+            var user = await _context.Users.FindAsync(request.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning("Change manager failed: User with ID {UserId} not found.", request.UserId);
+                throw new EntityNotFoundException("User not found");
+            }
 
             if (request.ManagerId.HasValue)
             {
-                var manager = await _context.Users.FindAsync(request.ManagerId.Value)
-                    ?? throw new EntityNotFoundException("Manager not found");
+                var manager = await _context.Users.FindAsync(request.ManagerId.Value);
+                if (manager == null)
+                {
+                    _logger.LogWarning("Change manager failed: Manager user with ID {ManagerId} not found.", request.ManagerId.Value);
+                    throw new EntityNotFoundException("Manager not found");
+                }
 
                 if (request.ManagerId.Value == request.UserId)
                 {
+                    _logger.LogWarning("Change manager failed: User with ID {UserId} attempted to assign themselves as their own manager.", request.UserId);
                     throw new ArgumentException("A user cannot be their own manager.");
                 }
             }
 
+            var oldManagerId = user.ManagerId;
             user.ManagerId = request.ManagerId;
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully updated manager for user {UserId} from {OldManagerId} to {NewManagerId}.", request.UserId, oldManagerId, request.ManagerId);
             return true;
         }
 
@@ -69,14 +84,22 @@ namespace CapstoneProjectAPI.Services
         {
             if (request.Level < 1)
             {
+                _logger.LogWarning("Change level failed: Level {Level} is invalid (must be >= 1).", request.Level);
                 throw new ArgumentException("Level must be a positive integer.");
             }
 
-            var user = await _context.Users.FindAsync(request.UserId)
-                ?? throw new EntityNotFoundException("User not found");
+            var user = await _context.Users.FindAsync(request.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning("Change level failed: User with ID {UserId} not found.", request.UserId);
+                throw new EntityNotFoundException("User not found");
+            }
 
+            var oldLevel = user.Level;
             user.Level = request.Level;
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully changed level of user {UserId} from {OldLevel} to {NewLevel}.", request.UserId, oldLevel, request.Level);
             return true;
         }
 
@@ -85,17 +108,22 @@ namespace CapstoneProjectAPI.Services
             var user = await _context.Users.FindAsync(request.UserId);
             if (user == null)
             {
+                _logger.LogWarning("Change department failed: User with ID {UserId} not found.", request.UserId);
                 throw new EntityNotFoundException("User not found");
             }
 
             var departmentExists = await _context.Departments.AnyAsync(d => d.Id == request.DepartmentId);
             if (!departmentExists)
             {
+                _logger.LogWarning("Change department failed: Department with ID {DeptId} not found.", request.DepartmentId);
                 throw new EntityNotFoundException("Department not found");
             }
 
+            var oldDeptId = user.DepartmentId;
             user.DepartmentId = request.DepartmentId;
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully changed department for user {UserId} from department {OldDeptId} to {NewDeptId}.", request.UserId, oldDeptId, request.DepartmentId);
             return true;
         }
 
@@ -103,6 +131,7 @@ namespace CapstoneProjectAPI.Services
         {
             if (string.IsNullOrWhiteSpace(request.Name))
             {
+                _logger.LogWarning("Add department failed: Department name is empty or whitespace.");
                 throw new ArgumentException("Department name cannot be empty.");
             }
 
@@ -111,6 +140,7 @@ namespace CapstoneProjectAPI.Services
 
             if (departmentExists)
             {
+                _logger.LogWarning("Add department failed: A department with name '{Name}' already exists.", request.Name);
                 throw new InvalidOperationException($"A department with name '{request.Name}' already exists.");
             }
 
@@ -122,6 +152,7 @@ namespace CapstoneProjectAPI.Services
             _context.Departments.Add(department);
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("Successfully created new department '{Name}' with ID {DeptId}.", department.Name, department.Id);
             return department;
         }
         public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(int pageNumber = 1, int pageSize = 10)
@@ -179,11 +210,19 @@ namespace CapstoneProjectAPI.Services
 
         public async Task<bool> ReassignDocuments(ReassignDocumentsRequestDto request, int adminUserId)
         {
-            var fromApprover = await _context.Users.FindAsync(request.FromApproverId)
-                ?? throw new EntityNotFoundException("Source approver user not found");
+            var fromApprover = await _context.Users.FindAsync(request.FromApproverId);
+            if (fromApprover == null)
+            {
+                _logger.LogWarning("Reassign documents failed: Source approver user with ID {FromId} not found.", request.FromApproverId);
+                throw new EntityNotFoundException("Source approver user not found");
+            }
 
-            var toApprover = await _context.Users.FindAsync(request.ToApproverId)
-                ?? throw new EntityNotFoundException("Target approver user not found");
+            var toApprover = await _context.Users.FindAsync(request.ToApproverId);
+            if (toApprover == null)
+            {
+                _logger.LogWarning("Reassign documents failed: Target approver user with ID {ToId} not found.", request.ToApproverId);
+                throw new EntityNotFoundException("Target approver user not found");
+            }
 
             var query = _context.Documents
                 .Include(d => d.CreatedByUser)
@@ -199,6 +238,7 @@ namespace CapstoneProjectAPI.Services
 
             if (request.DocumentId.HasValue && !documents.Any())
             {
+                _logger.LogWarning("Reassign documents failed: No pending document with ID {DocId} found for source approver {FromId}.", request.DocumentId.Value, request.FromApproverId);
                 throw new EntityNotFoundException($"No pending document with ID {request.DocumentId.Value} found for the source approver.");
             }
 
@@ -206,6 +246,8 @@ namespace CapstoneProjectAPI.Services
             {
                 if (toApprover.Level < doc.CreatedByUser.Level)
                 {
+                    _logger.LogWarning("Reassign documents failed: New approver {ToId} level ({ToLevel}) is less than uploader {UploaderId} level ({UploaderLevel}) for document {DocId}.",
+                        toApprover.Id, toApprover.Level, doc.CreatedByUserId, doc.CreatedByUser.Level, doc.Id);
                     throw new ArgumentException($"New approver's level ({toApprover.Level}) is less than the uploader's level ({doc.CreatedByUser.Level}) for document ID {doc.Id}.");
                 }
 
@@ -227,48 +269,73 @@ namespace CapstoneProjectAPI.Services
             }
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin {AdminId} successfully reassigned {Count} documents from approver {FromId} to approver {ToId}.",
+                adminUserId, documents.Count, request.FromApproverId, request.ToApproverId);
             return true;
         }
 
         public async Task DeactivateUser(int userId, int adminUserId)
         {
-            var user = await _context.Users.FindAsync(userId)
-                ?? throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("Deactivate user failed: User with ID {UserId} was not found.", userId);
+                throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            }
 
             if (userId == adminUserId)
+            {
+                _logger.LogWarning("Deactivate user failed: Admin {AdminId} attempted to deactivate their own account.", adminUserId);
                 throw new ArgumentException("An admin cannot deactivate their own account.");
+            }
 
             if (user.IsAdmin)
+            {
+                _logger.LogWarning("Deactivate user failed: Attempted to deactivate admin account {UserId}.", userId);
                 throw new ArgumentException("Admin accounts cannot be deactivated. Remove admin privileges first.");
+            }
 
             if (!user.IsActive)
+            {
+                _logger.LogWarning("Deactivate user failed: User {UserId} is already deactivated.", userId);
                 throw new InvalidOperationException("User is already deactivated.");
+            }
 
             int pendingAsApprover = await _context.Documents
                 .CountAsync(d => d.CurrentApproverUserId == userId
                               && d.DocumentStatus == DocumentStatus.PendingApproval);
 
             if (pendingAsApprover > 0)
+            {
+                _logger.LogWarning("Deactivate user failed: User {UserId} has {Count} pending document(s) to approve.", userId, pendingAsApprover);
                 throw new InvalidOperationException(
                     $"User cannot be deactivated: they are the current approver for {pendingAsApprover} pending document(s). " +
                     "Use PUT /api/admin/reassign-documents to reassign them first.");
+            }
 
             int pendingAsUploader = await _context.Documents
                 .CountAsync(d => d.CreatedByUserId == userId
                               && d.DocumentStatus == DocumentStatus.PendingApproval);
 
             if (pendingAsUploader > 0)
+            {
+                _logger.LogWarning("Deactivate user failed: User {UserId} has {Count} uploaded document(s) pending approval.", userId, pendingAsUploader);
                 throw new InvalidOperationException(
                     $"User cannot be deactivated: they have {pendingAsUploader} document(s) still awaiting approval. " +
                     "Those documents must be approved or rejected before this user can be deactivated.");
+            }
 
             int activeSubordinates = await _context.Users
                 .CountAsync(u => u.ManagerId == userId && u.IsActive);
 
             if (activeSubordinates > 0)
+            {
+                _logger.LogWarning("Deactivate user failed: User {UserId} is manager for {Count} active user(s).", userId, activeSubordinates);
                 throw new InvalidOperationException(
                     $"User cannot be deactivated: they are listed as the manager for {activeSubordinates} active user(s). " +
                     "Reassign those users to a different manager first (PUT /api/admin/change-manager).");
+            }
 
             user.IsActive = false;
 
@@ -281,15 +348,24 @@ namespace CapstoneProjectAPI.Services
             });
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin {AdminId} successfully deactivated user {UserId} ('{Name}').", adminUserId, userId, user.Name);
         }
 
         public async Task ReactivateUser(int userId, int adminUserId)
         {
-            var user = await _context.Users.FindAsync(userId)
-                ?? throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("Reactivate user failed: User with ID {UserId} was not found.", userId);
+                throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            }
 
             if (user.IsActive)
+            {
+                _logger.LogWarning("Reactivate user failed: User {UserId} is already active.", userId);
                 throw new InvalidOperationException("User is already active.");
+            }
 
             user.IsActive = true;
 
@@ -302,6 +378,8 @@ namespace CapstoneProjectAPI.Services
             });
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin {AdminId} successfully reactivated user {UserId} ('{Name}').", adminUserId, userId, user.Name);
         }
 
         public async Task RejectAllPendingDocumentsOfUser(int userId, int adminUserId, string reason)
@@ -309,11 +387,13 @@ namespace CapstoneProjectAPI.Services
             var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
             if (!userExists)
             {
+                _logger.LogWarning("Reject all pending documents failed: User with ID {UserId} was not found.", userId);
                 throw new EntityNotFoundException($"User with ID {userId} was not found.");
             }
 
             if (string.IsNullOrWhiteSpace(reason))
             {
+                _logger.LogWarning("Reject all pending documents failed: Reason is missing.");
                 throw new ArgumentException("Reason is required.");
             }
 
@@ -324,6 +404,7 @@ namespace CapstoneProjectAPI.Services
 
             if (!pendingDocuments.Any())
             {
+                _logger.LogInformation("No pending documents to reject for user {UserId}.", userId);
                 return;
             }
 
@@ -362,16 +443,23 @@ namespace CapstoneProjectAPI.Services
             }
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin {AdminId} successfully rejected all ({Count}) pending documents of user {UserId}. Reason: {Reason}.",
+                adminUserId, pendingDocuments.Count, userId, reason);
         }
 
         public async Task<BulkUploadUserResultDto> BulkUploadUsersAsync(IFormFile file, int adminUserId)
         {
             if (file == null || file.Length == 0)
+            {
+                _logger.LogWarning("Bulk upload users failed: File is missing or empty.");
                 throw new ArgumentException("CSV file is required.");
+            }
             var allowedMimeTypes = new[] { "text/csv", "application/csv", "application/vnd.ms-excel" };
 
             if (!allowedMimeTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
             {
+                _logger.LogWarning("Bulk upload users failed: Invalid file type {Type}.", file.ContentType);
                 throw new ArgumentException("Only .csv files are accepted.");
             }
             var result = new BulkUploadUserResultDto();
@@ -381,8 +469,11 @@ namespace CapstoneProjectAPI.Services
             var allContent = await reader.ReadToEndAsync();
             var lines = allContent.Split('\n', StringSplitOptions.None);
 
-            if (lines.Length == 0)
+            if (lines.Length == 0 || (lines.Length == 1 && string.IsNullOrWhiteSpace(lines[0])))
+            {
+                _logger.LogWarning("Bulk upload users failed: CSV file contains no lines.");
                 throw new ArgumentException("CSV file is empty.");
+            }
 
             int rowNumber = 1;
             foreach (var rawLine in lines.Skip(1))
@@ -397,6 +488,7 @@ namespace CapstoneProjectAPI.Services
 
                 if (columns.Length < 4)
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: Incorrect columns count ({Count}).", rowNumber, columns.Length);
                     result.Results.Add(new BulkUploadUserRowResult
                     {
                         RowNumber = rowNumber,
@@ -413,24 +505,28 @@ namespace CapstoneProjectAPI.Services
 
                 if (string.IsNullOrWhiteSpace(name))
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: Name is empty.", rowNumber);
                     result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Error = "Name is required." });
                     continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(email))
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: Email is empty.", rowNumber);
                     result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Error = "Email is required." });
                     continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: Password length must be >= 6.", rowNumber);
                     result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = "Password must be at least 6 characters." });
                     continue;
                 }
 
                 if (!int.TryParse(deptIdRaw, out int departmentId) || departmentId <= 0)
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: Invalid department ID '{Raw}'.", rowNumber, deptIdRaw);
                     result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = $"Invalid DepartmentId '{deptIdRaw}'." });
                     continue;
                 }
@@ -438,6 +534,7 @@ namespace CapstoneProjectAPI.Services
                 bool emailExists = await _context.Users.AnyAsync(u => u.Email == email);
                 if (emailExists)
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: User with email {Email} already exists.", rowNumber, email);
                     result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = $"A user with email '{email}' already exists." });
                     continue;
                 }
@@ -445,6 +542,7 @@ namespace CapstoneProjectAPI.Services
                 bool deptExists = await _context.Departments.AnyAsync(d => d.Id == departmentId);
                 if (!deptExists)
                 {
+                    _logger.LogWarning("Bulk upload users row {Row}: Department with ID {DeptId} not found.", rowNumber, departmentId);
                     result.Results.Add(new BulkUploadUserRowResult { RowNumber = rowNumber, Success = false, Email = email, Name = name, Error = $"Department with ID {departmentId} was not found." });
                     continue;
                 }
@@ -481,6 +579,9 @@ namespace CapstoneProjectAPI.Services
             result.TotalRows = result.Results.Count;
             result.SuccessCount = result.Results.Count(r => r.Success);
             result.FailureCount = result.Results.Count(r => !r.Success);
+
+            _logger.LogInformation("Admin {AdminId} bulk uploaded users from CSV: Total: {Total}, Succeeded: {Success}, Failed: {Failure}.",
+                adminUserId, result.TotalRows, result.SuccessCount, result.FailureCount);
 
             return result;
         }

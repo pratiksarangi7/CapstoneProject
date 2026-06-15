@@ -5,6 +5,7 @@ using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CapstoneProjectAPI.Services
 {
@@ -12,6 +13,7 @@ namespace CapstoneProjectAPI.Services
     {
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _environment;
+        private readonly ILogger<DocumentService> _logger;
 
         private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -22,32 +24,58 @@ namespace CapstoneProjectAPI.Services
 
         private const long MaxFileSizeBytes = 5 * 1024 * 1024;
 
-        public DocumentService(AppDbContext context, IWebHostEnvironment environment)
+        public DocumentService(AppDbContext context, IWebHostEnvironment environment, ILogger<DocumentService> logger)
         {
             _context = context;
             _environment = environment;
+            _logger = logger;
         }
 
         public async Task<UploadDocumentResponseDto> UploadDocument(UploadDocumentRequestDto request, int uploaderUserId)
         {
             if (request.File == null || request.File.Length == 0)
+            {
+                _logger.LogWarning("Document upload failed: File is missing or empty.");
                 throw new ArgumentException("File is required.");
+            }
 
             if (request.File.Length > MaxFileSizeBytes)
+            {
+                _logger.LogWarning("Document upload failed: File size {FileSize} bytes exceeds limit of 5 MB.", request.File.Length);
                 throw new ArgumentException("File size exceeds the maximum allowed size of 5 MB.");
+            }
 
             string mimeType = request.File.ContentType;
             if (!AllowedMimeTypes.Contains(mimeType))
+            {
+                _logger.LogWarning("Document upload failed: MimeType '{MimeType}' is invalid.", mimeType);
                 throw new ArgumentException($"Invalid file type '{mimeType}'. Allowed types: PDF, JPEG, PNG.");
+            }
 
-            var uploader = await _context.Users.FindAsync(uploaderUserId)
-                ?? throw new EntityNotFoundException("Uploader user not found.");
+            var uploader = await _context.Users.FindAsync(uploaderUserId);
+            if (uploader == null)
+            {
+                _logger.LogWarning("Document upload failed: Uploader user with ID {UserId} was not found.", uploaderUserId);
+                throw new EntityNotFoundException("Uploader user not found.");
+            }
 
             var targetDeptExists = await _context.Departments.AnyAsync(d => d.Id == request.TargetDepartmentId);
             if (!targetDeptExists)
+            {
+                _logger.LogWarning("Document upload failed: Target department with ID {DeptId} not found.", request.TargetDepartmentId);
                 throw new EntityNotFoundException("Target department not found.");
+            }
 
-            int? approverUserId = await DetermineFirstApprover(uploader, request.TargetDepartmentId);
+            int? approverUserId;
+            try
+            {
+                approverUserId = await DetermineFirstApprover(uploader, request.TargetDepartmentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Document upload failed: DetermineFirstApprover threw an exception.");
+                throw;
+            }
 
             string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
             Directory.CreateDirectory(uploadsFolder);
@@ -97,6 +125,9 @@ namespace CapstoneProjectAPI.Services
                 approverName = approver?.Name;
             }
 
+            _logger.LogInformation("Document {DocumentId} ('{Title}') successfully uploaded by user {UserId}. Status: {Status}, Next Approver: {ApproverId}.",
+                document.Id, document.Title, uploaderUserId, document.DocumentStatus, document.CurrentApproverUserId);
+
             return new UploadDocumentResponseDto
             {
                 DocumentId = document.Id,
@@ -123,15 +154,24 @@ namespace CapstoneProjectAPI.Services
                 .FirstOrDefaultAsync(d => d.Id == documentId);
 
             if (document == null)
+            {
+                _logger.LogWarning("Withdraw failed: Document with ID {DocumentId} not found.", documentId);
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
 
             if (document.CreatedByUserId != requestingUserId)
+            {
+                _logger.LogWarning("Withdraw failed: User {UserId} is not authorized to withdraw document {DocumentId}.", requestingUserId, documentId);
                 throw new UnauthorizedAccessException("You are not authorised to withdraw this document.");
+            }
 
             if (document.DocumentStatus != DocumentStatus.PendingApproval)
+            {
+                _logger.LogWarning("Withdraw failed: Document {DocumentId} is in status '{Status}'. Only PendingApproval documents can be withdrawn.", documentId, document.DocumentStatus);
                 throw new InvalidOperationException(
                     $"Document cannot be withdrawn because its status is '{document.DocumentStatus}'. " +
                     "Only documents with status 'PendingApproval' can be withdrawn.");
+            }
 
 
             string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
@@ -150,6 +190,8 @@ namespace CapstoneProjectAPI.Services
 
             _context.Documents.Remove(document);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Document {DocumentId} successfully withdrawn and deleted by user {UserId}.", documentId, requestingUserId);
         }
 
         private async Task<int?> DetermineFirstApprover(User uploader, int targetDepartmentId)
@@ -312,16 +354,27 @@ namespace CapstoneProjectAPI.Services
         {
             var document = await _context.Documents
                 .Include(d => d.Versions)
-                .FirstOrDefaultAsync(d => d.Id == documentId)
-                ?? throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null)
+            {
+                _logger.LogWarning("Rejection failed: Document with ID {DocumentId} not found.", documentId);
+                throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
 
             if (document.CurrentApproverUserId != approverUserId)
+            {
+                _logger.LogWarning("Rejection failed: User {UserId} is not the current approver for document {DocumentId}.", approverUserId, documentId);
                 throw new UnauthorizedAccessException("You are not authorised to reject this document.");
+            }
 
             if (document.DocumentStatus != DocumentStatus.PendingApproval)
+            {
+                _logger.LogWarning("Rejection failed: Document {DocumentId} is in status '{Status}'. Only PendingApproval documents can be rejected.", documentId, document.DocumentStatus);
                 throw new InvalidOperationException(
                     $"Document cannot be rejected because its status is '{document.DocumentStatus}'. " +
                     "Only documents with status 'PendingApproval' can be rejected.");
+            }
 
             var currentVersion = document.Versions.FirstOrDefault(v => v.IsCurrentVersion)
                 ?? document.Versions.OrderByDescending(v => v.VersionNumber).First();
@@ -350,36 +403,62 @@ namespace CapstoneProjectAPI.Services
             });
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Document {DocumentId} was successfully rejected by approver {ApproverUserId}. Reason: {Reason}", documentId, approverUserId, reason);
         }
 
         public async Task<UploadDocumentResponseDto> ReUploadDocumentVersionAsync(
             int documentId, ReUploadDocumentRequestDto request, int uploaderUserId)
         {
             if (request.File == null || request.File.Length == 0)
+            {
+                _logger.LogWarning("Re-upload failed: File is missing or empty.");
                 throw new ArgumentException("File is required.");
+            }
 
             if (request.File.Length > MaxFileSizeBytes)
+            {
+                _logger.LogWarning("Re-upload failed: File size {FileSize} bytes exceeds limit of 5 MB.", request.File.Length);
                 throw new ArgumentException("File size exceeds the maximum allowed size of 5 MB.");
+            }
 
             string mimeType = request.File.ContentType;
             if (!AllowedMimeTypes.Contains(mimeType))
+            {
+                _logger.LogWarning("Re-upload failed: MimeType '{MimeType}' is invalid.", mimeType);
                 throw new ArgumentException($"Invalid file type '{mimeType}'. Allowed types: PDF, JPEG, PNG.");
+            }
 
             var document = await _context.Documents
                 .Include(d => d.Versions)
-                .FirstOrDefaultAsync(d => d.Id == documentId)
-                ?? throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null)
+            {
+                _logger.LogWarning("Re-upload failed: Document with ID {DocumentId} not found.", documentId);
+                throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
 
             if (document.CreatedByUserId != uploaderUserId)
+            {
+                _logger.LogWarning("Re-upload failed: User {UserId} is not authorized to re-upload for document {DocumentId}.", uploaderUserId, documentId);
                 throw new UnauthorizedAccessException("You are not authorised to re-upload this document.");
+            }
 
             if (document.DocumentStatus != DocumentStatus.Rejected)
+            {
+                _logger.LogWarning("Re-upload failed: Document {DocumentId} is in status '{Status}'. Re-uploads only allowed for Rejected status.", documentId, document.DocumentStatus);
                 throw new InvalidOperationException(
                     $"A new version can only be uploaded for rejected documents. " +
                     $"Current status is '{document.DocumentStatus}'.");
+            }
 
-            var uploader = await _context.Users.FindAsync(uploaderUserId)
-                ?? throw new EntityNotFoundException("Uploader user not found.");
+            var uploader = await _context.Users.FindAsync(uploaderUserId);
+            if (uploader == null)
+            {
+                _logger.LogWarning("Re-upload failed: Uploader user with ID {UserId} was not found.", uploaderUserId);
+                throw new EntityNotFoundException("Uploader user not found.");
+            }
 
             foreach (var v in document.Versions)
                 v.IsCurrentVersion = false;
@@ -431,6 +510,9 @@ namespace CapstoneProjectAPI.Services
 
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("Successfully re-uploaded document version {Version} for document {DocumentId} by user {UserId}. Next Approver: {ApproverId}.",
+                nextVersionNumber, documentId, uploaderUserId, document.CurrentApproverUserId);
+
             string? approverName = null;
             if (approverUserId.HasValue)
             {
@@ -461,21 +543,37 @@ namespace CapstoneProjectAPI.Services
             var document = await _context.Documents
                 .Include(d => d.Versions)
                 .Include(d => d.TargetDepartment)
-                .FirstOrDefaultAsync(d => d.Id == documentId)
-                ?? throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null)
+            {
+                _logger.LogWarning("Approval failed: Document with ID {DocumentId} not found.", documentId);
+                throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
 
             if (document.CurrentApproverUserId != approverUserId)
+            {
+                _logger.LogWarning("Approval failed: User {UserId} is not the current approver for document {DocumentId}.", approverUserId, documentId);
                 throw new UnauthorizedAccessException("You are not authorised to approve this document.");
+            }
 
             if (document.DocumentStatus != DocumentStatus.PendingApproval)
+            {
+                _logger.LogWarning("Approval failed: Document {DocumentId} is in status '{Status}'. Only PendingApproval documents can be approved.", documentId, document.DocumentStatus);
                 throw new InvalidOperationException(
                     $"Document cannot be approved because its status is '{document.DocumentStatus}'. " +
                     "Only documents with status 'PendingApproval' can be approved.");
+            }
 
             var currentApprover = await _context.Users
                 .Include(u => u.Department)
-                .FirstOrDefaultAsync(u => u.Id == approverUserId)
-                ?? throw new EntityNotFoundException("Approver user not found.");
+                .FirstOrDefaultAsync(u => u.Id == approverUserId);
+
+            if (currentApprover == null)
+            {
+                _logger.LogWarning("Approval failed: Approver user with ID {UserId} was not found.", approverUserId);
+                throw new EntityNotFoundException("Approver user not found.");
+            }
 
             var currentVersion = document.Versions.FirstOrDefault(v => v.IsCurrentVersion)
                 ?? document.Versions.OrderByDescending(v => v.VersionNumber).First();
@@ -519,19 +617,29 @@ namespace CapstoneProjectAPI.Services
                             ApproverComments = request.Comments,
                             ActedAt = actedAt
                         };
+
+                        _logger.LogInformation("Document {DocumentId} successfully approved entirely by approver {ApproverId}.", documentId, approverUserId);
                         break;
                     }
 
                 case ApproveDocumentAction.ApproveAndForward:
                     {
                         if (!currentApprover.ManagerId.HasValue)
+                        {
+                            _logger.LogWarning("Approval forward failed: Current approver {ApproverId} has no manager.", approverUserId);
                             throw new InvalidOperationException(
                                 "Cannot forward: the current approver has no manager in this department.");
+                        }
 
                         var manager = await _context.Users
                             .Include(u => u.Department)
-                            .FirstOrDefaultAsync(u => u.Id == currentApprover.ManagerId.Value)
-                            ?? throw new EntityNotFoundException("Manager user not found.");
+                            .FirstOrDefaultAsync(u => u.Id == currentApprover.ManagerId.Value);
+
+                        if (manager == null)
+                        {
+                            _logger.LogWarning("Approval forward failed: Manager with ID {ManagerId} was not found.", currentApprover.ManagerId.Value);
+                            throw new EntityNotFoundException("Manager user not found.");
+                        }
 
                         document.CurrentApproverUserId = manager.Id;
 
@@ -567,25 +675,38 @@ namespace CapstoneProjectAPI.Services
                             ApproverComments = request.Comments,
                             ActedAt = actedAt
                         };
+
+                        _logger.LogInformation("Document {DocumentId} approved by {ApproverId} and forwarded to manager {ManagerId}.", documentId, approverUserId, manager.Id);
                         break;
                     }
 
                 case ApproveDocumentAction.ApproveAndTransfer:
                     {
                         if (!request.TargetUserId.HasValue)
+                        {
+                            _logger.LogWarning("Approval transfer failed: TargetUserId is missing.");
                             throw new ArgumentException(
                                 "TargetUserId is required when action is ApproveAndTransfer.");
+                        }
 
                         var targetUser = await _context.Users
                             .Include(u => u.Department)
-                            .FirstOrDefaultAsync(u => u.Id == request.TargetUserId.Value)
-                            ?? throw new EntityNotFoundException(
+                            .FirstOrDefaultAsync(u => u.Id == request.TargetUserId.Value);
+
+                        if (targetUser == null)
+                        {
+                            _logger.LogWarning("Approval transfer failed: Target user with ID {TargetId} not found.", request.TargetUserId.Value);
+                            throw new EntityNotFoundException(
                                 $"Target user with ID {request.TargetUserId.Value} was not found.");
+                        }
 
                         if (targetUser.DepartmentId == currentApprover.DepartmentId)
+                        {
+                            _logger.LogWarning("Approval transfer failed: Target user {TargetId} belongs to the same department as approver {ApproverId}.", targetUser.Id, approverUserId);
                             throw new InvalidOperationException(
                                 "ApproveAndTransfer requires the target user to belong to a different department. " +
                                 "Use ApproveAndForward to escalate within the same department.");
+                        }
 
                         document.CurrentApproverUserId = targetUser.Id;
                         document.DocumentStatus = DocumentStatus.PendingApproval;
@@ -625,10 +746,13 @@ namespace CapstoneProjectAPI.Services
                             ApproverComments = request.Comments,
                             ActedAt = actedAt
                         };
+
+                        _logger.LogInformation("Document {DocumentId} approved by {ApproverId} and transferred cross-department to user {TargetId}.", documentId, approverUserId, targetUser.Id);
                         break;
                     }
 
                 default:
+                    _logger.LogWarning("Approval failed: Unknown approval action '{Action}'.", request.Action);
                     throw new ArgumentException($"Unknown approval action '{request.Action}'.");
             }
 
@@ -642,29 +766,53 @@ namespace CapstoneProjectAPI.Services
             var document = await _context.Documents
                 .Include(d => d.TargetDepartment)
                 .Include(d => d.Versions)
-                .FirstOrDefaultAsync(d => d.Id == documentId)
-                ?? throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null)
+            {
+                _logger.LogWarning("Transfer failed: Document with ID {DocumentId} not found.", documentId);
+                throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
 
             if (document.CurrentApproverUserId != currentApproverUserId)
+            {
+                _logger.LogWarning("Transfer failed: User {UserId} is not the current approver for document {DocumentId}.", currentApproverUserId, documentId);
                 throw new UnauthorizedAccessException("You are not authorised to transfer this document.");
+            }
 
             if (document.DocumentStatus != DocumentStatus.PendingApproval)
+            {
+                _logger.LogWarning("Transfer failed: Document {DocumentId} is in status '{Status}'. Only PendingApproval documents can be transferred.", documentId, document.DocumentStatus);
                 throw new InvalidOperationException(
                     $"Only documents with status 'PendingApproval' can be transferred. " +
                     $"Current status is '{document.DocumentStatus}'.");
+            }
 
             if (request.TargetUserId == currentApproverUserId)
+            {
+                _logger.LogWarning("Transfer failed: User {UserId} attempted to transfer document {DocumentId} to themselves.", currentApproverUserId, documentId);
                 throw new ArgumentException("Cannot transfer the document to yourself.");
+            }
 
             var targetUser = await _context.Users
                 .Include(u => u.Department)
-                .FirstOrDefaultAsync(u => u.Id == request.TargetUserId)
-                ?? throw new EntityNotFoundException(
+                .FirstOrDefaultAsync(u => u.Id == request.TargetUserId);
+
+            if (targetUser == null)
+            {
+                _logger.LogWarning("Transfer failed: Target user with ID {TargetId} not found.", request.TargetUserId);
+                throw new EntityNotFoundException(
                     $"Target user with ID {request.TargetUserId} was not found.");
+            }
 
             var currentApprover = await _context.Users
-                .FirstOrDefaultAsync(u => u.Id == currentApproverUserId)
-                ?? throw new EntityNotFoundException("Current approver user not found.");
+                .FirstOrDefaultAsync(u => u.Id == currentApproverUserId);
+
+            if (currentApprover == null)
+            {
+                _logger.LogWarning("Transfer failed: Current approver with ID {ApproverId} not found.", currentApproverUserId);
+                throw new EntityNotFoundException("Current approver user not found.");
+            }
 
             var currentVersion = document.Versions.FirstOrDefault(v => v.IsCurrentVersion)
                 ?? document.Versions.OrderByDescending(v => v.VersionNumber).First();
@@ -699,6 +847,8 @@ namespace CapstoneProjectAPI.Services
 
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("Document {DocumentId} transferred by user {UserId} to target user {TargetId}.", documentId, currentApproverUserId, targetUser.Id);
+
             return new ApproveDocumentResponseDto
             {
                 DocumentId = document.Id,
@@ -721,35 +871,65 @@ namespace CapstoneProjectAPI.Services
             var document = await _context.Documents
                 .Include(d => d.Versions)
                 .Include(d => d.ApprovalActions)
-                .FirstOrDefaultAsync(d => d.Id == documentId)
-                ?? throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+                .FirstOrDefaultAsync(d => d.Id == documentId);
 
-            var requestingUser = await _context.Users.FindAsync(requestingUserId)
-                ?? throw new EntityNotFoundException("Requesting user not found.");
+            if (document == null)
+            {
+                _logger.LogWarning("Download failed: Document with ID {DocumentId} not found.", documentId);
+                throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
 
-            AssertCanViewDocument(document, requestingUser);
+            var requestingUser = await _context.Users.FindAsync(requestingUserId);
+            if (requestingUser == null)
+            {
+                _logger.LogWarning("Download failed: Requesting user with ID {UserId} not found.", requestingUserId);
+                throw new EntityNotFoundException("Requesting user not found.");
+            }
 
-            DocumentVersion version;
+            try
+            {
+                AssertCanViewDocument(document, requestingUser);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Download unauthorized: User {UserId} is not authorized to view document {DocumentId}.", requestingUserId, documentId);
+                throw;
+            }
+
+            DocumentVersion? version;
 
             if (versionId.HasValue)
             {
-                version = document.Versions.FirstOrDefault(v => v.Id == versionId.Value)
-                    ?? throw new EntityNotFoundException(
+                version = document.Versions.FirstOrDefault(v => v.Id == versionId.Value);
+                if (version == null)
+                {
+                    _logger.LogWarning("Download failed: Version with ID {VersionId} not found on document {DocumentId}.", versionId.Value, documentId);
+                    throw new EntityNotFoundException(
                         $"Version with ID {versionId.Value} was not found on document {documentId}.");
+                }
             }
             else
             {
                 version = document.Versions.FirstOrDefault(v => v.IsCurrentVersion)
-                    ?? document.Versions.OrderByDescending(v => v.VersionNumber).First();
+                    ?? document.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+
+                if (version == null)
+                {
+                    _logger.LogWarning("Download failed: No version found for document {DocumentId}.", documentId);
+                    throw new EntityNotFoundException($"No version found for document {documentId}.");
+                }
             }
 
             string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
             string filePath = Path.Combine(uploadsFolder, version.StoredFileName);
 
             if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("Download failed: Physical file for version {Version} of document {DocumentId} was not found on the server at path {Path}.", version.VersionNumber, documentId, filePath);
                 throw new EntityNotFoundException(
                     $"Physical file for version {version.VersionNumber} of document {documentId} " +
                     "was not found on the server.");
+            }
 
             _context.AuditLogs.Add(new AuditLog
             {
@@ -761,6 +941,8 @@ namespace CapstoneProjectAPI.Services
                 CreatedAt = DateTimeOffset.UtcNow
             });
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Physical file for version {Version} of document {DocumentId} successfully downloaded by user {UserId}.", version.VersionNumber, documentId, requestingUserId);
 
             return new DocumentFileDto
             {

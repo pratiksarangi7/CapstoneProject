@@ -9,6 +9,7 @@ using CapstoneProjectAPI.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using CapstoneProjectAPI.Models.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace CapstoneProjectAPI.Services
 {
@@ -17,40 +18,49 @@ namespace CapstoneProjectAPI.Services
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IMapper _mapper;
+        private readonly ILogger<AuthenticationService> _logger;
 
-        public AuthenticationService(AppDbContext context, IConfiguration configuration, IMapper mapper)
+        public AuthenticationService(AppDbContext context, IConfiguration configuration, IMapper mapper, ILogger<AuthenticationService> logger)
         {
             _context = context;
             _configuration = configuration;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<RegisterResponseDto> Register(RegisterRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Email))
             {
+                _logger.LogWarning("Registration failed: Email is missing.");
                 throw new ArgumentException("Email is required.");
             }
 
             if (string.IsNullOrWhiteSpace(request.Password))
             {
+                _logger.LogWarning("Registration failed for email {Email}: Password is missing.", request.Email);
                 throw new ArgumentException("Password is required.");
             }
 
             if (string.IsNullOrWhiteSpace(request.Name))
             {
+                _logger.LogWarning("Registration failed for email {Email}: Name is missing.", request.Email);
                 throw new ArgumentException("Name is required.");
             }
 
             if (request.DepartmentId <= 0)
             {
+                _logger.LogWarning("Registration failed for email {Email}: Department ID {DeptId} is invalid.", request.Email, request.DepartmentId);
                 throw new ArgumentException("A valid Department ID is required.");
             }
             bool emailExists = await _context.Users
                 .AnyAsync(u => u.Email == request.Email);
 
             if (emailExists)
+            {
+                _logger.LogWarning("Registration failed: User with email '{Email}' already exists.", request.Email);
                 throw new InvalidOperationException($"A user with email '{request.Email}' already exists.");
+            }
 
             string passwordHash = HashPassword(request.Password);
 
@@ -74,6 +84,8 @@ namespace CapstoneProjectAPI.Services
             });
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("Successfully registered new user {UserId} ('{Name}') with email {Email}.", user.Id, user.Name, user.Email);
+
             return _mapper.Map<RegisterResponseDto>(user);
         }
 
@@ -83,10 +95,16 @@ namespace CapstoneProjectAPI.Services
                 .FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null || !VerifyPassword(request.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Login failed: Invalid credentials for email '{Email}'.", request.Email);
                 throw new UnauthorizedAccessException("Invalid email or password.");
+            }
 
             if (!user.IsActive)
+            {
+                _logger.LogWarning("Login failed: Deactivated user '{Email}' attempted login.", request.Email);
                 throw new UnauthorizedAccessException("Your account has been deactivated. Please contact your administrator.");
+            }
 
             string token = GenerateJwtToken(user);
             _context.AuditLogs.Add(new AuditLog()
@@ -97,6 +115,9 @@ namespace CapstoneProjectAPI.Services
                 Details = $"User logged in. Email: {user.Email}",
             });
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully authenticated user {UserId} ('{Email}'). JWT token generated.", user.Id, user.Email);
+
             return _mapper.Map<LoginResponseDto>(user, opts =>
             {
                 opts.Items["JwtToken"] = token;

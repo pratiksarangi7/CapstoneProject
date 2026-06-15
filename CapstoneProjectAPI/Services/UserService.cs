@@ -7,6 +7,7 @@ using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CapstoneProjectAPI.Services
 {
@@ -14,11 +15,13 @@ namespace CapstoneProjectAPI.Services
     {
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
+        private readonly ILogger<UserService> _logger;
 
-        public UserService(AppDbContext context, IMapper mapper)
+        public UserService(AppDbContext context, IMapper mapper, ILogger<UserService> logger)
         {
             _context = context;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<UserDetailsResponseDto> GetUserDetailsAsync(int userId)
@@ -30,6 +33,7 @@ namespace CapstoneProjectAPI.Services
 
             if (user == null)
             {
+                _logger.LogWarning("Get user details failed: User with ID {UserId} was not found.", userId);
                 throw new EntityNotFoundException($"User with ID {userId} was not found.");
             }
 
@@ -38,14 +42,24 @@ namespace CapstoneProjectAPI.Services
 
         public async Task ChangePasswordAsync(int userId, ChangePasswordRequestDto request)
         {
-            var user = await _context.Users.FindAsync(userId)
-                ?? throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("Change password failed: User with ID {UserId} was not found.", userId);
+                throw new EntityNotFoundException($"User with ID {userId} was not found.");
+            }
 
             if (!VerifyPassword(request.OldPassword, user.PasswordHash))
+            {
+                _logger.LogWarning("Change password failed: Old password verification failed for user {UserId}.", userId);
                 throw new UnauthorizedAccessException("Old password is incorrect.");
+            }
 
             if (request.OldPassword == request.NewPassword)
+            {
+                _logger.LogWarning("Change password failed: New password matches old password for user {UserId}.", userId);
                 throw new ArgumentException("New password must be different from the old password.");
+            }
 
             user.PasswordHash = HashPassword(request.NewPassword);
 
@@ -58,6 +72,8 @@ namespace CapstoneProjectAPI.Services
             });
 
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("User {UserId} ('{Name}') successfully changed their password.", userId, user.Name);
         }
 
         private static string HashPassword(string password)
