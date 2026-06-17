@@ -14,7 +14,18 @@ using System.Threading.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
-
+#region cors
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularDev", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+#endregion
 builder.Services.AddControllers();
 
 #region Rate Limiting
@@ -134,7 +145,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowAngularDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();

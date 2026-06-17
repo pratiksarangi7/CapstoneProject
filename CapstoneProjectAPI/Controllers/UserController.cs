@@ -48,5 +48,13 @@ namespace CapstoneProjectAPI.Controllers
             await _userService.ChangePasswordAsync(userId, request);
             return Ok(new { message = "Password changed successfully." });
         }
+
+        [AllowAnonymous]
+        [HttpGet("departments")]
+        public async Task<IActionResult> GetDepartments()
+        {
+            var departments = await _userService.GetDepartmentsAsync();
+            return Ok(departments);
+        }
     }
 }

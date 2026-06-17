@@ -76,6 +76,19 @@ namespace CapstoneProjectAPI.Services
             _logger.LogInformation("User {UserId} ('{Name}') successfully changed their password.", userId, user.Name);
         }
 
+        public async Task<List<OnlyDepartmentResponseDto>> GetDepartmentsAsync()
+        {
+            var departments = await _context.Departments
+                .OrderBy(d => d.Name)
+                .ToListAsync();
+
+            return departments.Select(d => new OnlyDepartmentResponseDto
+            {
+                Id = d.Id,
+                Name = d.Name
+            }).ToList();
+        }
+
         private static string HashPassword(string password)
         {
             using var hmac = new System.Security.Cryptography.HMACSHA256();

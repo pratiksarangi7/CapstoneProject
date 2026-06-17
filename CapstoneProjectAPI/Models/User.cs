@@ -10,7 +10,7 @@ namespace CapstoneProjectAPI.Models
         public int DepartmentId { get; set; }
         public int? ManagerId { get; set; }
         public int Level { get; set; } = 1;
-        public bool IsActive { get; set; } = true;
+        public bool IsActive { get; set; } = false;
         public Department Department { get; set; } = null!;
         public User? Manager { get; set; }
         public ICollection<User> Subordinates { get; set; } = new List<User>();
