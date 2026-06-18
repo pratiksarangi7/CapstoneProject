@@ -70,6 +70,7 @@ namespace CapstoneProjectAPI.Services
                 Email = request.Email,
                 PasswordHash = passwordHash,
                 DepartmentId = request.DepartmentId,
+                IsActive = false,
             };
 
             _context.Users.Add(user);

@@ -66,6 +66,42 @@ namespace CapstoneProjectAPI.Services
                 throw new EntityNotFoundException("Target department not found.");
             }
 
+            bool isDuplicateTitle = await _context.Documents.AnyAsync(d =>
+                d.CreatedByUserId == uploaderUserId &&
+                d.TargetDepartmentId == request.TargetDepartmentId &&
+                d.Title == request.Title &&
+                (d.DocumentStatus == DocumentStatus.PendingApproval ||
+                 d.DocumentStatus == DocumentStatus.Approved));
+
+            if (isDuplicateTitle)
+            {
+                _logger.LogWarning(
+                    "Document upload failed: User {UserId} already has an active document titled '{Title}' for department {DeptId}.",
+                    uploaderUserId, request.Title, request.TargetDepartmentId);
+                throw new InvalidOperationException(
+                    "A document with the same title is already active (PendingApproval or Approved) " +
+                    "for this department. Please withdraw it or use a different title.");
+            }
+
+            string contentHash = await ComputeSha256HashAsync(request.File);
+
+            bool isDuplicateContent = await _context.DocumentVersions.AnyAsync(dv =>
+                dv.UploadedByUserId == uploaderUserId &&
+                dv.ContentHash == contentHash &&
+                dv.Document.TargetDepartmentId == request.TargetDepartmentId &&
+                (dv.Document.DocumentStatus == DocumentStatus.PendingApproval ||
+                 dv.Document.DocumentStatus == DocumentStatus.Approved));
+
+            if (isDuplicateContent)
+            {
+                _logger.LogWarning(
+                    "Document upload failed: User {UserId} already has an active document with identical file content (hash: {Hash}).",
+                    uploaderUserId, contentHash);
+                throw new InvalidOperationException(
+                    "An identical file has already been uploaded and is currently active. " +
+                    "Please upload a different document.");
+            }
+
             int? approverUserId;
             try
             {
@@ -110,6 +146,7 @@ namespace CapstoneProjectAPI.Services
                 StoredFileName = storedFileName,
                 FileSize = request.File.Length,
                 MimeType = mimeType,
+                ContentHash = contentHash,
                 IsCurrentVersion = true,
                 UploadedByUserId = uploaderUserId,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -962,6 +999,18 @@ namespace CapstoneProjectAPI.Services
 
             if (!isUploader && !isCurrentApprover && !isPastApprover && !isAdmin)
                 throw new UnauthorizedAccessException("You are not authorised to view this document.");
+        }
+
+        /// <summary>
+        /// Computes the SHA-256 hash of the uploaded file content and returns it as an uppercase hex string.
+        /// The stream is rewound to position 0 before reading so the caller can still use the file afterwards.
+        /// </summary>
+        private static async Task<string> ComputeSha256HashAsync(IFormFile file)
+        {
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            using var stream = file.OpenReadStream();
+            byte[] hashBytes = await sha256.ComputeHashAsync(stream);
+            return Convert.ToHexString(hashBytes); // 64 uppercase hex chars
         }
     }
 }

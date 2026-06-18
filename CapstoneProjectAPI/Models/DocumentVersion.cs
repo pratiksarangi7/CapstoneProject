@@ -9,6 +9,7 @@ namespace CapstoneProjectAPI.Models
         public string StoredFileName { get; set; } = string.Empty;
         public long FileSize { get; set; }
         public string MimeType { get; set; } = string.Empty;
+        public string? ContentHash { get; set; }
         public bool IsCurrentVersion { get; set; } = false;
         public int UploadedByUserId { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

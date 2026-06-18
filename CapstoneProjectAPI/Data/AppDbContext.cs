@@ -103,6 +103,10 @@ namespace CapstoneProjectAPI.Data
                       .IsRequired()
                       .HasMaxLength(100);
 
+                entity.Property(dv => dv.ContentHash)
+                      .HasMaxLength(64)
+                      .IsRequired(false);
+
                 entity.HasOne(dv => dv.Document)
                       .WithMany(d => d.Versions)
                       .HasForeignKey(dv => dv.DocumentId)
