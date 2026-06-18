@@ -1,0 +1,274 @@
+
+<div class="uploads-root">
+
+  <div class="uploads-toolbar">
+    <div class="toolbar-left">
+      <h2 class="section-heading">My Documents</h2>
+      @if (!isLoading()) {
+        <span class="doc-count">{{ myDocuments().totalCount }} total</span>
+      }
+    </div>
+    <div class="toolbar-right">
+      <button class="btn-upload" id="upload-btn" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 16 12 12 8 16"></polyline>
+          <line x1="12" y1="12" x2="12" y2="21"></line>
+          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+        </svg>
+        Upload
+      </button>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Loading documents…</p>
+    </div>
+  }
+
+  @if (!isLoading() && myDocuments().items.length === 0) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <p>No documents uploaded yet.</p>
+    </div>
+  }
+
+  @if (!isLoading() && myDocuments().items.length > 0) {
+    <div class="table-wrapper">
+      <table class="doc-table" aria-label="My uploaded documents">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th class="th-center">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (doc of myDocuments().items; track doc.id) {
+            <!-- ── Main document row ──────────────────────────────────────── -->
+            <tr class="doc-row" [class.doc-row--expanded]="isExpanded(doc.id)">
+              <td class="td-index">{{ doc.id }}</td>
+              <td class="td-title">
+                <span class="doc-title">{{ doc.title }}</span>
+                <span class="doc-meta">by {{ doc.createdByUserName }}</span>
+              </td>
+              <td class="td-desc">{{ doc.description }}</td>
+              <td class="td-status">
+                <span class="badge {{ statusClass(doc.documentStatus) }}">
+                  {{ doc.documentStatus }}
+                </span>
+              </td>
+              <td class="td-action">
+                <button
+                  class="btn-expand"
+                  [class.btn-expand--open]="isExpanded(doc.id)"
+                  (click)="toggleExpand(doc.id)"
+                  [attr.aria-expanded]="isExpanded(doc.id)"
+                  [attr.aria-label]="isExpanded(doc.id) ? 'Collapse details for ' + doc.title : 'Expand details for ' + doc.title">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- ── Expanded detail panel ──────────────────────────────────── -->
+            @if (isExpanded(doc.id)) {
+              <tr class="detail-row">
+                <td colspan="5">
+                  <div class="detail-panel slide-down">
+
+                    <!-- Doc meta info grid -->
+                    <div class="detail-meta-grid">
+                      <div class="meta-card">
+                        <span class="meta-label">Target Department</span>
+                        <span class="meta-value">{{ doc.targetDepartmentName }}</span>
+                      </div>
+                      <div class="meta-card">
+                        <span class="meta-label">Created At</span>
+                        <span class="meta-value">{{ formatDate(doc.createdAt) }}</span>
+                      </div>
+                      <div class="meta-card">
+                        <span class="meta-label">Current Approver</span>
+                        @if (doc.currentApproverName) {
+                          <span class="meta-value">{{ doc.currentApproverName }}
+                            <em class="meta-sub">({{ doc.currentApproverDepartmentName }})</em>
+                          </span>
+                        } @else {
+                          <span class="meta-value meta-na">—</span>
+                        }
+                      </div>
+                      <div class="meta-card">
+                        <span class="meta-label">Uploaded By</span>
+                        <span class="meta-value">{{ doc.createdByUserName }}
+                          <em class="meta-sub">({{ doc.createdByUserEmail }})</em>
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Versions list -->
+                    <div class="versions-section">
+                      <h4 class="versions-heading">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="17 1 21 5 17 9"></polyline>
+                          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                          <polyline points="7 23 3 19 7 15"></polyline>
+                          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                        </svg>
+                        Version History ({{ doc.versions.length }})
+                      </h4>
+
+                      @if (doc.versions.length === 0) {
+                        <p class="no-versions">No versions available.</p>
+                      } @else {
+                        <div class="versions-list">
+                          @for (ver of doc.versions; track ver.id) {
+                            <div class="version-card" [class.version-card--current]="ver.isCurrentVersion">
+                              <!-- Version header -->
+                              <div class="version-header">
+                                <div class="version-badge-row">
+                                  <span class="version-num">v{{ ver.versionNumber }}</span>
+                                  @if (ver.isCurrentVersion) {
+                                    <span class="badge-current">Current</span>
+                                  }
+                                </div>
+                                <button class="btn-view-doc" disabled title="View document (coming soon)">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                  </svg>
+                                  View
+                                </button>
+                              </div>
+
+                              <!-- Version metadata -->
+                              <div class="version-meta">
+                                <div class="vmeta-item">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                                    <polyline points="13 2 13 9 20 9"></polyline>
+                                  </svg>
+                                  <span>{{ ver.originalFileName }}</span>
+                                </div>
+                                <div class="vmeta-item">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                                  </svg>
+                                  <span>{{ ver.mimeType }} · {{ formatFileSize(ver.fileSize) }}</span>
+                                </div>
+                                <div class="vmeta-item">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                  </svg>
+                                  <span>{{ formatDate(ver.createdAt) }} by {{ ver.uploadedByUserName }}</span>
+                                </div>
+                              </div>
+
+                              <!-- Approval action audit -->
+                              @if (ver.approvalAction) {
+                                <div class="audit-section">
+                                  <h5 class="audit-heading">Audit Action</h5>
+                                  <div class="audit-card {{ actionClass(ver.approvalAction.action) }}">
+                                    <div class="audit-row">
+                                      <span class="audit-label">Action</span>
+                                      <span class="audit-value action-chip {{ actionClass(ver.approvalAction.action) }}">
+                                        {{ ver.approvalAction.action }}
+                                      </span>
+                                    </div>
+                                    <div class="audit-row">
+                                      <span class="audit-label">By</span>
+                                      <span class="audit-value">{{ ver.approvalAction.approverUserName }}</span>
+                                    </div>
+                                    <div class="audit-row">
+                                      <span class="audit-label">Date</span>
+                                      <span class="audit-value">{{ formatDate(ver.approvalAction.createdAt) }}</span>
+                                    </div>
+                                    @if (ver.approvalAction.comments) {
+                                      <div class="audit-row audit-comment">
+                                        <span class="audit-label">Comments</span>
+                                        <span class="audit-value">{{ ver.approvalAction.comments }}</span>
+                                      </div>
+                                    }
+                                  </div>
+                                </div>
+                              } @else {
+                                <div class="audit-no-action">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                       stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                  </svg>
+                                  No audit action recorded for this version.
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Pagination ──────────────────────────────────────────────────────── -->
+    <div class="pagination-bar">
+      <button class="page-btn page-nav"
+              [disabled]="!myDocuments().hasPreviousPage"
+              (click)="goToPage(currentPage() - 1)"
+              aria-label="Previous page">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      @for (pg of pageNumbers; track pg) {
+        <button class="page-btn"
+                [class.page-btn--active]="pg === currentPage()"
+                (click)="goToPage(pg)">
+          {{ pg }}
+        </button>
+      }
+
+      <button class="page-btn page-nav"
+              [disabled]="!myDocuments().hasNextPage"
+              (click)="goToPage(currentPage() + 1)"
+              aria-label="Next page">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <span class="page-info">
+        Page {{ myDocuments().pageNumber }} of {{ myDocuments().totalPages }}
+        &nbsp;·&nbsp; {{ myDocuments().totalCount }} documents
+      </span>
+    </div>
+  }
+
+</div>
