@@ -928,3 +928,255 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── Version actions row ──────────────────────────────────────────────────── */
+.version-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Re-upload button (version card) ─────────────────────────────────────── */
+.btn-reupload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background-color: #fff3f3;
+  color: #c0392b;
+  border: 1.5px solid #f5c6c6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-reupload:hover {
+  background-color: #ffe0e0;
+  border-color: #e57373;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(192, 57, 43, 0.15);
+}
+
+.btn-reupload svg {
+  width: 14px;
+  height: 14px;
+  stroke: #c0392b;
+}
+
+/* ── Re-upload modal container ────────────────────────────────────────────── */
+.reupload-modal-container {
+  max-width: 480px;
+}
+
+/* ── Re-upload modal body ─────────────────────────────────────────────────── */
+.reupload-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+/* ── Info banner ─────────────────────────────────────────────────────────── */
+.reupload-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #1e40af;
+}
+
+.reupload-info-banner svg {
+  width: 18px;
+  height: 18px;
+  stroke: #2563eb;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Drop zone ────────────────────────────────────────────────────────────── */
+.reupload-drop-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 24px;
+  border: 2px dashed var(--card-border);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  text-align: center;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.reupload-drop-zone:hover {
+  border-color: var(--accent-primary);
+  background-color: #f0f7ff;
+}
+
+.drop-zone-icon {
+  width: 40px;
+  height: 40px;
+  stroke: var(--text-muted);
+}
+
+.drop-zone-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.drop-zone-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.file-input-hidden {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.drop-zone-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  background-color: var(--accent-primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+  transition: var(--transition-smooth);
+}
+
+.drop-zone-label:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ── Selected file display ───────────────────────────────────────────────── */
+.drop-zone-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.drop-zone-selected svg {
+  width: 20px;
+  height: 20px;
+  stroke: #16a34a;
+  flex-shrink: 0;
+}
+
+.selected-file-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.selected-file-size {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Error message ───────────────────────────────────────────────────────── */
+.reupload-error-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background-color: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.83rem;
+  color: #b91c1c;
+}
+
+.reupload-error-msg svg {
+  width: 16px;
+  height: 16px;
+  stroke: #dc2626;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Success state ───────────────────────────────────────────────────────── */
+.reupload-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 24px;
+  text-align: center;
+  color: #16a34a;
+}
+
+.reupload-success svg {
+  width: 52px;
+  height: 52px;
+  stroke: #16a34a;
+}
+
+.reupload-success p {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ── Submit button ───────────────────────────────────────────────────────── */
+.btn-reupload-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.btn-reupload-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Spinner (inside button) ─────────────────────────────────────────────── */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

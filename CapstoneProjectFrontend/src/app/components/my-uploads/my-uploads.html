@@ -137,14 +137,27 @@
                                     <span class="badge-current">Current</span>
                                   }
                                 </div>
-                                <button class="btn-view-doc" (click)="viewDocument(doc.id, ver)" aria-label="View document version">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                  </svg>
-                                  View
-                                </button>
+                                <div class="version-actions-row">
+                                  <button class="btn-view-doc" (click)="viewDocument(doc.id, ver)" aria-label="View document version">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                      <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    View
+                                  </button>
+                                  @if (ver.isCurrentVersion && doc.documentStatus === 'Rejected') {
+                                    <button class="btn-reupload" (click)="openReuploadModal(doc.id)" aria-label="Re-upload rejected document">
+                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="16 16 12 12 8 16"></polyline>
+                                        <line x1="12" y1="12" x2="12" y2="21"></line>
+                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                                      </svg>
+                                      Re-upload
+                                    </button>
+                                  }
+                                </div>
                               </div>
 
                               <div class="version-meta">
@@ -343,5 +356,130 @@
   <!-- Document Upload Modal -->
   @if (isUploadOpen()) {
     <app-upload-doc (close)="closeUploadModal()" (uploaded)="onUploadSuccess()"></app-upload-doc>
+  }
+
+  <!-- Re-upload Modal -->
+  @if (isReuploadOpen()) {
+    <div class="modal-overlay" (click)="closeReuploadModal()" id="reupload-modal-overlay">
+      <div class="modal-container reupload-modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="reupload-modal-title">
+
+        <div class="modal-header">
+          <h3 class="modal-title" id="reupload-modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="width:20px;height:20px;vertical-align:middle;margin-right:8px;">
+              <polyline points="16 16 12 12 8 16"></polyline>
+              <line x1="12" y1="12" x2="12" y2="21"></line>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+            </svg>
+            Re-upload Document
+          </h3>
+          <button class="btn-modal-close" (click)="closeReuploadModal()" aria-label="Close re-upload modal">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body reupload-modal-body">
+
+          @if (reuploadSuccess()) {
+            <div class="reupload-success">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              <p>Document re-uploaded successfully! Refreshing…</p>
+            </div>
+          } @else {
+            <div class="reupload-info-banner">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>Upload a corrected version. Accepted: <strong>Images &amp; PDF</strong> · Max size: <strong>5 MB</strong></span>
+            </div>
+
+            <div class="reupload-drop-zone" id="reupload-drop-zone">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                   class="drop-zone-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+
+              @if (reuploadFile()) {
+                <div class="drop-zone-selected">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                  <span class="selected-file-name">{{ reuploadFile()!.name }}</span>
+                  <span class="selected-file-size">{{ formatFileSize(reuploadFile()!.size) }}</span>
+                </div>
+              } @else {
+                <p class="drop-zone-text">Click to select a file</p>
+                <p class="drop-zone-sub">Images (JPEG, PNG, GIF, WebP, SVG) or PDF · Max 5 MB</p>
+              }
+              <input
+                type="file"
+                id="reupload-file-input"
+                class="file-input-hidden"
+                accept="image/*,.pdf"
+                (change)="onReuploadFileChange($event)"
+                aria-label="Select file to re-upload"
+              />
+              <label for="reupload-file-input" class="drop-zone-label">Choose File</label>
+            </div>
+
+            @if (reuploadError()) {
+              <div class="reupload-error-msg">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>{{ reuploadError() }}</span>
+              </div>
+            }
+          }
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-footer-secondary" (click)="closeReuploadModal()" id="btn-cancel-reupload"
+                  [disabled]="reuploadLoading()">
+            Cancel
+          </button>
+          @if (!reuploadSuccess()) {
+            <button class="btn-footer-primary btn-reupload-submit" (click)="submitReupload()"
+                    id="btn-submit-reupload"
+                    [disabled]="!reuploadFile() || reuploadLoading()">
+              @if (reuploadLoading()) {
+                <span class="btn-spinner"></span>
+                Uploading…
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     style="width:16px;height:16px;">
+                  <polyline points="16 16 12 12 8 16"></polyline>
+                  <line x1="12" y1="12" x2="12" y2="21"></line>
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                </svg>
+                Submit Re-upload
+              }
+            </button>
+          }
+        </div>
+
+      </div>
+    </div>
   }
 </div>

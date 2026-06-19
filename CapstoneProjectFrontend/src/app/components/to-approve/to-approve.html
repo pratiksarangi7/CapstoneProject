@@ -1,1 +1,569 @@
-<p>to-approve works!</p>
+<div class="approvals-root">
+  <div class="approvals-toolbar">
+    <div class="toolbar-left">
+      <h2 class="section-heading">Pending Approvals</h2>
+      @if (!isLoading()) {
+        <span class="doc-count">{{ pendingDocuments().totalCount }} total</span>
+      }
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Loading pending documents…</p>
+    </div>
+  }
+
+  @if (!isLoading() && pendingDocuments().items.length === 0) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <p>No documents pending approval.</p>
+    </div>
+  }
+
+  @if (!isLoading() && pendingDocuments().items.length > 0) {
+    <div class="table-wrapper">
+      <table class="doc-table" aria-label="Documents pending approval">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Uploaded By</th>
+            <th>Date</th>
+            <th class="th-center">Versions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (doc of pendingDocuments().items; track doc.id) {
+            <!-- Main document row -->
+            <tr class="doc-row" [class.doc-row--expanded]="isExpanded(doc.id)">
+              <td class="td-title">
+                <span class="doc-title">{{ doc.title }}</span>
+              </td>
+              <td class="td-desc">{{ doc.description }}</td>
+              <td class="td-author">
+                <span class="doc-meta-name">{{ doc.createdByUserName }}</span>
+                <span class="doc-meta-email">{{ doc.createdByUserEmail }}</span>
+              </td>
+              <td class="td-date">{{ formatDate(doc.createdAt) }}</td>
+              <td class="td-action">
+                <button
+                  class="btn-expand"
+                  [class.btn-expand--open]="isExpanded(doc.id)"
+                  (click)="toggleExpand(doc.id)"
+                  [attr.aria-expanded]="isExpanded(doc.id)"
+                  [attr.aria-label]="isExpanded(doc.id) ? 'Collapse details for ' + doc.title : 'Expand details for ' + doc.title">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Expanded version history panel -->
+            @if (isExpanded(doc.id)) {
+              <tr class="detail-row">
+                <td colspan="5">
+                  <div class="detail-panel slide-down">
+                    <div class="versions-section">
+                      <h4 class="versions-heading">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="17 1 21 5 17 9"></polyline>
+                          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                          <polyline points="7 23 3 19 7 15"></polyline>
+                          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                        </svg>
+                        Version History ({{ doc.versions.length }})
+                      </h4>
+
+                      <div class="versions-list">
+                        @for (ver of doc.versions; track ver.id) {
+                          <div class="version-card" [class.version-card--current]="ver.isCurrentVersion">
+                            <div class="version-header">
+                              <div class="version-badge-row">
+                                <span class="version-num">v{{ ver.versionNumber }}</span>
+                                @if (ver.isCurrentVersion) {
+                                  <span class="badge-current">Current</span>
+                                }
+                              </div>
+                              <div class="version-actions-row">
+                                <button class="btn-view-doc" type="button" (click)="viewDocument(doc.id, ver)" aria-label="View document version">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                  </svg>
+                                  View
+                                </button>
+                                @if (ver.isCurrentVersion) {
+                                  <button class="btn-action-doc" type="button" (click)="openActionModal(doc, ver)" aria-label="Take action on document">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                      <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                      <polyline points="2 17 12 22 22 17"></polyline>
+                                      <polyline points="2 12 12 17 22 12"></polyline>
+                                    </svg>
+                                    Action
+                                  </button>
+                                }
+                              </div>
+                            </div>
+
+                            <div class="version-meta">
+                              <div class="vmeta-item">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                                  <polyline points="13 2 13 9 20 9"></polyline>
+                                </svg>
+                                <span>{{ ver.originalFileName }}</span>
+                              </div>
+                              <div class="vmeta-item">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                                </svg>
+                                <span>{{ ver.mimeType }} · {{ formatFileSize(ver.fileSize) }}</span>
+                              </div>
+                              <div class="vmeta-item">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                  <circle cx="12" cy="12" r="10"></circle>
+                                  <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                                <span>Uploaded by {{ ver.uploadedByUserName }} on {{ formatDate(ver.createdAt) }}</span>
+                              </div>
+                            </div>
+                            
+                            <!-- Audit Trail for historical versions -->
+                            @if (ver.approvalAction) {
+                              <div class="audit-section">
+                                <h5 class="audit-heading">Audit Action</h5>
+                                <div class="audit-card" [class.action-rejected]="ver.approvalAction.action === 'Rejected'" [class.action-approved]="ver.approvalAction.action === 'Approved'">
+                                  <div class="audit-row">
+                                    <span class="audit-label">Action</span>
+                                    <span class="audit-value action-chip" [class.action-rejected]="ver.approvalAction.action === 'Rejected'" [class.action-approved]="ver.approvalAction.action === 'Approved'">
+                                      {{ ver.approvalAction.action }}
+                                    </span>
+                                  </div>
+                                  <div class="audit-row">
+                                    <span class="audit-label">By</span>
+                                    <span class="audit-value">{{ ver.approvalAction.approverUserName }}</span>
+                                  </div>
+                                  <div class="audit-row">
+                                    <span class="audit-label">Date</span>
+                                    <span class="audit-value">{{ formatDate(ver.approvalAction.createdAt) }}</span>
+                                  </div>
+                                  @if (ver.approvalAction.comments) {
+                                    <div class="audit-row audit-comment">
+                                      <span class="audit-label">Comments</span>
+                                      <span class="audit-value">{{ ver.approvalAction.comments }}</span>
+                                    </div>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-bar">
+      <button class="page-btn page-nav"
+              [disabled]="!pendingDocuments().hasPreviousPage"
+              (click)="goToPage(currentPage() - 1)"
+              aria-label="Previous page">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
+      @for (pg of pageNumbers; track pg) {
+        <button class="page-btn"
+                [class.page-btn--active]="pg === currentPage()"
+                (click)="goToPage(pg)">
+          {{ pg }}
+        </button>
+      }
+
+      <button class="page-btn page-nav"
+              [disabled]="!pendingDocuments().hasNextPage"
+              (click)="goToPage(currentPage() + 1)"
+              aria-label="Next page">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <span class="page-info">
+        Page {{ pendingDocuments().pageNumber }} of {{ pendingDocuments().totalPages }}
+        &nbsp;·&nbsp; {{ pendingDocuments().totalCount }} documents
+      </span>
+    </div>
+  }
+
+  <!-- ── Action Modal ──────────────────────────────────────────────────────── -->
+  @if (isActionModalOpen() && selectedDocument() && selectedVersion()) {
+    <div class="modal-overlay" (click)="closeActionModal()">
+      <div class="modal-container modal-container--action" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="selectedDocument()?.title">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3 class="modal-title">Document Action</h3>
+            <span class="modal-subtitle">{{ selectedDocument()?.title }}</span>
+          </div>
+          <button class="btn-modal-close" (click)="closeActionModal()" aria-label="Close modal">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" 
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Document info card -->
+          <div class="action-details-card">
+            <div class="detail-field">
+              <span class="detail-label">Description</span>
+              <span class="detail-value">{{ selectedDocument()?.description }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Uploaded By</span>
+              <span class="detail-value">{{ selectedDocument()?.createdByUserName }} ({{ selectedDocument()?.createdByUserEmail }})</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Target Dept.</span>
+              <span class="detail-value">{{ selectedDocument()?.targetDepartmentName }}</span>
+            </div>
+            <div class="detail-field">
+              <span class="detail-label">Version</span>
+              <span class="detail-value">v{{ selectedVersion()?.versionNumber }} · {{ selectedVersion()?.originalFileName }}</span>
+            </div>
+          </div>
+
+          <!-- View document button -->
+          <div class="action-preview-row">
+            <button class="btn-action-view" type="button" (click)="viewDocument(selectedDocument()!.id, selectedVersion()!)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="view-icon">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              View Document File
+            </button>
+          </div>
+
+          <!-- Comments -->
+          <div class="comments-section-wrapper">
+            <label for="actionComments" class="comment-label">Comments</label>
+            <textarea id="actionComments" placeholder="Add comments (optional for Approve / Transfer, required for Reject)…" rows="3" class="action-comments-input" [(ngModel)]="actionComments"></textarea>
+          </div>
+
+          <!-- Action buttons — redesigned as clear labeled sections -->
+          <div class="action-sections">
+
+            <!-- APPROVE group -->
+            <div class="action-group">
+              <span class="action-group-label">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6L9 17l-5-5"></path>
+                </svg>
+                Approve
+              </span>
+              <div class="action-group-buttons">
+                <!-- Approve Completely -->
+                <button class="action-tile action-tile--approve" type="button" id="btn-approve-completely" (click)="executeAction('Approve Completely')">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                  <span class="tile-label">Approve Completely</span>
+                  <span class="tile-desc">Final approval — closes the workflow</span>
+                </button>
+
+                <!-- Approve & Forward -->
+                <button class="action-tile action-tile--forward" type="button" id="btn-approve-forward" (click)="executeAction('Approve & Forward')">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 17 15 11 9 5"></polyline>
+                    <line x1="15" y1="11" x2="3" y2="11"></line>
+                    <path d="M20 17v-4a2 2 0 0 0-2-2h-2"></path>
+                  </svg>
+                  <span class="tile-label">Approve &amp; Forward</span>
+                  <span class="tile-desc">Approve &amp; send to next in chain</span>
+                </button>
+
+                <!-- Approve & Transfer -->
+                <button class="action-tile action-tile--transfer-approve" type="button" id="btn-approve-transfer" (click)="executeAction('Approve & Transfer')">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="16" cy="8" r="2"></circle>
+                    <circle cx="8" cy="16" r="2"></circle>
+                    <path d="M16 10v1a4 4 0 0 1-4 4H8"></path>
+                    <polyline points="10 14 8 16 10 18"></polyline>
+                  </svg>
+                  <span class="tile-label">Approve &amp; Transfer</span>
+                  <span class="tile-desc">Approve &amp; redirect to another user</span>
+                  <span class="tile-badge">Requires target user</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TRANSFER / REJECT group -->
+            <div class="action-group action-group--secondary">
+              <!-- Transfer only -->
+              <button class="action-tile action-tile--transfer" type="button" id="btn-transfer" (click)="executeAction('Transfer')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="17 1 21 5 17 9"></polyline>
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                  <polyline points="7 23 3 19 7 15"></polyline>
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                </svg>
+                <span class="tile-label">Transfer</span>
+                <span class="tile-desc">Redirect to another user without approving</span>
+                <span class="tile-badge tile-badge--orange">Requires target user</span>
+              </button>
+
+              <!-- Reject -->
+              <button class="action-tile action-tile--reject" type="button" id="btn-reject" (click)="executeAction('Reject')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <span class="tile-label">Reject</span>
+                <span class="tile-desc">Reject &amp; send back with reason</span>
+                <span class="tile-badge tile-badge--red">Requires reason in comments</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-footer-secondary" type="button" (click)="closeActionModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ── User Search Modal (for Approve & Transfer / Transfer) ───────────── -->
+  @if (isUserSearchModalOpen()) {
+    <div class="modal-overlay modal-overlay--user-search" (click)="closeUserSearchModal()">
+      <div class="modal-container modal-container--user-search" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Select target user">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3 class="modal-title">Select Target User</h3>
+            <span class="modal-subtitle">
+              @if (pendingActionType() === 'Approve & Transfer') {
+                Approve &amp; transfer to a user in another department
+              } @else {
+                Transfer document to a user in another department
+              }
+            </span>
+          </div>
+          <button class="btn-modal-close" (click)="closeUserSearchModal()" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" 
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Search input -->
+          <div class="user-search-bar">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              id="userSearchInput"
+              type="text"
+              class="user-search-input"
+              placeholder="Search by name, email, or department…"
+              [(ngModel)]="userSearchQuery"
+              autocomplete="off"
+              aria-label="Search users"
+            />
+            @if (userSearchQuery) {
+              <button class="search-clear-btn" type="button" (click)="userSearchQuery = ''" aria-label="Clear search">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            }
+          </div>
+
+          <!-- Selected user badge -->
+          @if (selectedTargetUser()) {
+            <div class="selected-user-banner">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5"></path>
+              </svg>
+              <div class="selected-user-info">
+                <span class="selected-user-name">{{ selectedTargetUser()!.name }}</span>
+                <span class="selected-user-meta">{{ selectedTargetUser()!.email }} · {{ selectedTargetUser()!.departmentName }}</span>
+              </div>
+              <button class="selected-user-clear" type="button" (click)="selectedTargetUser.set(null)" aria-label="Clear selection">Change</button>
+            </div>
+          }
+
+          <!-- Users list -->
+          <div class="user-results-list">
+            @if (isUsersLoading()) {
+              <div class="user-results-loading">
+                <div class="spinner spinner--sm"></div>
+                <p>Loading users…</p>
+              </div>
+            } @else if (filteredUsers.length === 0) {
+              <div class="user-results-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <p>No users found matching "{{ userSearchQuery }}"</p>
+              </div>
+            } @else {
+              @for (user of filteredUsers; track user.id) {
+                <button
+                  class="user-result-card"
+                  type="button"
+                  [class.user-result-card--selected]="selectedTargetUser()?.id === user.id"
+                  (click)="selectTargetUser(user)"
+                  [attr.aria-pressed]="selectedTargetUser()?.id === user.id"
+                >
+                  <div class="user-avatar">{{ user.name.charAt(0).toUpperCase() }}</div>
+                  <div class="user-result-info">
+                    <span class="user-result-name">{{ user.name }}</span>
+                    <span class="user-result-email">{{ user.email }}</span>
+                  </div>
+                  <span class="user-result-dept">{{ user.departmentName }}</span>
+                  @if (selectedTargetUser()?.id === user.id) {
+                    <svg class="user-selected-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 6L9 17l-5-5"></path>
+                    </svg>
+                  }
+                </button>
+              }
+            }
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-footer-secondary" type="button" (click)="closeUserSearchModal()">Back</button>
+          <button
+            class="btn-footer-confirm"
+            type="button"
+            id="btn-confirm-transfer"
+            [disabled]="!selectedTargetUser()"
+            (click)="confirmTransferAction()"
+          >
+            @if (pendingActionType() === 'Approve & Transfer') {
+              Confirm Approve &amp; Transfer
+            } @else {
+              Confirm Transfer
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Document Viewer Modal -->
+  @if (isPreviewOpen()) {
+    <div class="modal-overlay modal-overlay--preview" (click)="closePreviewModal()">
+      <div class="modal-container modal-container--preview" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="previewFileName()">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h3 class="modal-title">{{ previewFileName() }}</h3>
+          <button class="btn-modal-close" type="button" (click)="closePreviewModal()" aria-label="Close modal">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" 
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+          @if (isPreviewLoading()) {
+            <div class="modal-loader">
+              <div class="spinner"></div>
+              <p>Fetching document preview…</p>
+            </div>
+          } @else if (previewError()) {
+            <div class="modal-error-alert">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <p>{{ previewError() }}</p>
+            </div>
+          } @else {
+            <div class="modal-preview-wrapper">
+              @if (previewFileType() === 'image') {
+                <img [src]="previewFileUrl()" class="preview-media preview-image" alt="Document preview image" />
+              } @else if (previewFileType() === 'pdf') {
+                <iframe [src]="previewFileUrl()" class="preview-media preview-pdf" title="PDF Document Preview"></iframe>
+              } @else {
+                <div class="preview-unsupported">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  <p>Preview not supported for this file format.</p>
+                  <a [href]="previewFileUrl()" [download]="previewFileName()" class="btn-fallback-download">
+                    Download File
+                  </a>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          @if (!isPreviewLoading() && !previewError() && previewFileUrl()) {
+            <a [href]="previewFileUrl()" target="_blank" class="btn-footer-secondary" aria-label="Open in new tab">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              Open in New Tab
+            </a>
+          }
+          <button class="btn-footer-primary" (click)="closePreviewModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -4,6 +4,10 @@ import { baseUrl } from "../../environment";
 import { Observable } from "rxjs";
 import { MyUploadsApiResponse } from "../dtos/my-uploads.response.dto";
 import { DocsPendingApprovalApiResponse } from "../dtos/docs-pending-approval.response.dto";
+import { ApproveDocumentRequestDto } from "../dtos/approve-document.request.dto";
+import { RejectDocumentRequestDto } from "../dtos/reject-document.request.dto";
+import { ReUploadDocumentRequestDto } from "../dtos/reupload-document.request.dto";
+import { TransferDocumentRequestDto } from "../dtos/transfer-document.request.dto";
 
 @Injectable({
     providedIn: "root"
@@ -37,8 +41,23 @@ export class DocumentService {
             .set('pageSize', pageSize.toString());
         return this.http.get<DocsPendingApprovalApiResponse>(url, { params })
     }
-    public approveDocumentApiCall(documentId: number){
+    public approveDocumentApiCall(documentId: number, action: ApproveDocumentRequestDto) {
         const url = `${baseUrl}/document/${documentId}/approve`;
+        return this.http.put(url, action);
     }
-    
+    public rejectDocumentApiCall(documentId: number, action: RejectDocumentRequestDto): Observable<any> {
+        const url = `${baseUrl}/document/${documentId}/reject`;
+        return this.http.put(url, action);
+    }
+    public reuploadDocumentApiCall(documentId: number, file: File): Observable<any> {
+        const url = `${baseUrl}/document/${documentId}/reupload`;
+        const formData = new FormData();
+        formData.append('file', file);
+        return this.http.post(url, formData);
+    }
+    public transferDocumentApiCall(documentId: number, transferDocumentRequestDto: TransferDocumentRequestDto) {
+        const url = `${baseUrl}/document/${documentId}/transfer`;
+        return this.http.put(url, transferDocumentRequestDto);
+    }
+
 }

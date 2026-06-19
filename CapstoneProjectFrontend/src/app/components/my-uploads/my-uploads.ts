@@ -41,6 +41,14 @@ export class MyUploads implements OnInit, OnDestroy {
   // Upload Signals
   isUploadOpen = signal(false);
 
+  // Re-upload Signals
+  isReuploadOpen = signal(false);
+  reuploadDocId = signal<number | null>(null);
+  reuploadFile = signal<File | null>(null);
+  reuploadError = signal<string | null>(null);
+  reuploadLoading = signal(false);
+  reuploadSuccess = signal(false);
+
   constructor(
     private documentService: DocumentService,
     private sanitizer: DomSanitizer
@@ -187,6 +195,76 @@ export class MyUploads implements OnInit, OnDestroy {
     this.isUploadOpen.set(false);
     this.currentPage.set(1);
     this.loadPage();
+  }
+
+  openReuploadModal(documentId: number): void {
+    this.reuploadDocId.set(documentId);
+    this.reuploadFile.set(null);
+    this.reuploadError.set(null);
+    this.reuploadLoading.set(false);
+    this.reuploadSuccess.set(false);
+    this.isReuploadOpen.set(true);
+  }
+
+  closeReuploadModal(): void {
+    this.isReuploadOpen.set(false);
+    this.reuploadDocId.set(null);
+    this.reuploadFile.set(null);
+    this.reuploadError.set(null);
+    this.reuploadLoading.set(false);
+    this.reuploadSuccess.set(false);
+  }
+
+  onReuploadFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.reuploadError.set(null);
+    if (!input.files || input.files.length === 0) {
+      this.reuploadFile.set(null);
+      return;
+    }
+    const file = input.files[0];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      this.reuploadError.set('Only image files (JPEG, PNG, GIF, WebP, SVG) and PDF files are allowed.');
+      this.reuploadFile.set(null);
+      input.value = '';
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5 MB
+    if (file.size > maxSize) {
+      this.reuploadError.set('File size must not exceed 5 MB.');
+      this.reuploadFile.set(null);
+      input.value = '';
+      return;
+    }
+    this.reuploadFile.set(file);
+  }
+
+  submitReupload(): void {
+    const docId = this.reuploadDocId();
+    const file = this.reuploadFile();
+    if (!docId || !file) {
+      this.reuploadError.set('Please select a valid file before submitting.');
+      return;
+    }
+    this.reuploadLoading.set(true);
+    this.reuploadError.set(null);
+    this.documentService.reuploadDocumentApiCall(docId, file).subscribe({
+      next: () => {
+        this.reuploadLoading.set(false);
+        this.reuploadSuccess.set(true);
+        setTimeout(() => {
+          this.closeReuploadModal();
+          this.currentPage.set(1);
+          this.loadPage();
+        }, 1500);
+      },
+      error: (err) => {
+        console.error('Re-upload failed', err);
+        this.reuploadError.set('Re-upload failed. Please try again.');
+        this.reuploadLoading.set(false);
+      }
+    });
   }
 
   ngOnDestroy(): void {
