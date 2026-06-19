@@ -89,6 +89,34 @@ namespace CapstoneProjectAPI.Services
             }).ToList();
         }
 
+        public async Task<List<ExternalUserResponseDto>> GetUsersOutsideDepartmentAsync(int currentUserId)
+        {
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            if (currentUser == null)
+            {
+                _logger.LogWarning("GetUsersOutsideDepartment failed: User with ID {UserId} was not found.", currentUserId);
+                throw new EntityNotFoundException($"User with ID {currentUserId} was not found.");
+            }
+
+            var users = await _context.Users
+                .Where(u => u.DepartmentId != currentUser.DepartmentId && u.Id != currentUserId)
+                .OrderBy(u => u.Name)
+                .Select(u => new ExternalUserResponseDto
+                {
+                    Id = u.Id,
+                    Name = u.Name,
+                    Email = u.Email,
+                    DepartmentName = u.Department.Name
+                })
+                .ToListAsync();
+
+            _logger.LogInformation(
+                "Fetched {Count} users outside department {DepartmentId} for user {UserId}.",
+                users.Count, currentUser.DepartmentId, currentUserId);
+
+            return users;
+        }
+
         private static string HashPassword(string password)
         {
             using var hmac = new System.Security.Cryptography.HMACSHA256();

@@ -56,5 +56,18 @@ namespace CapstoneProjectAPI.Controllers
             var departments = await _userService.GetDepartmentsAsync();
             return Ok(departments);
         }
+
+        [HttpGet("external")]
+        public async Task<IActionResult> GetUsersOutsideDepartment()
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            var users = await _userService.GetUsersOutsideDepartmentAsync(userId);
+            return Ok(users);
+        }
     }
 }
