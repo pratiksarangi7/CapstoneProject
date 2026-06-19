@@ -5,6 +5,7 @@ import { RegisterModel } from '../../models/register.model';
 import { Department } from '../../models/department.model';
 import { AuthService } from '../../services/auth.service';
 import { Router, RouterLink } from '@angular/router';
+import { DepartmentService } from '../../services/department.service';
 
 @Component({
   selector: 'app-register',
@@ -22,7 +23,7 @@ export class Register implements OnInit {
   });
   progress = signal(false);
 
-  constructor(private authService: AuthService, private router: Router) { }
+  constructor(private authService: AuthService, private departmentService: DepartmentService, private router: Router) { }
 
   emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
@@ -39,7 +40,7 @@ export class Register implements OnInit {
   });
 
   ngOnInit(): void {
-    this.authService.GetAllDepartments().subscribe({
+    this.departmentService.GetAllDepartments().subscribe({
       next: (data) => {
         this.departments.set(data);
         console.log(this.departments());

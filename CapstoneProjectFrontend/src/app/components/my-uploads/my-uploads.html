@@ -9,7 +9,7 @@
       }
     </div>
     <div class="toolbar-right">
-      <button class="btn-upload" id="upload-btn" disabled>
+      <button class="btn-upload" id="upload-btn" (click)="openUploadModal()" aria-label="Upload document">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="16 16 12 12 8 16"></polyline>
@@ -53,7 +53,6 @@
         </thead>
         <tbody>
           @for (doc of myDocuments().items; track doc.id) {
-            <!-- ── Main document row ──────────────────────────────────────── -->
             <tr class="doc-row" [class.doc-row--expanded]="isExpanded(doc.id)">
               <td class="td-index">{{ doc.id }}</td>
               <td class="td-title">
@@ -81,13 +80,11 @@
               </td>
             </tr>
 
-            <!-- ── Expanded detail panel ──────────────────────────────────── -->
             @if (isExpanded(doc.id)) {
               <tr class="detail-row">
                 <td colspan="5">
                   <div class="detail-panel slide-down">
 
-                    <!-- Doc meta info grid -->
                     <div class="detail-meta-grid">
                       <div class="meta-card">
                         <span class="meta-label">Target Department</span>
@@ -115,7 +112,6 @@
                       </div>
                     </div>
 
-                    <!-- Versions list -->
                     <div class="versions-section">
                       <h4 class="versions-heading">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -134,7 +130,6 @@
                         <div class="versions-list">
                           @for (ver of doc.versions; track ver.id) {
                             <div class="version-card" [class.version-card--current]="ver.isCurrentVersion">
-                              <!-- Version header -->
                               <div class="version-header">
                                 <div class="version-badge-row">
                                   <span class="version-num">v{{ ver.versionNumber }}</span>
@@ -142,7 +137,7 @@
                                     <span class="badge-current">Current</span>
                                   }
                                 </div>
-                                <button class="btn-view-doc" disabled title="View document (coming soon)">
+                                <button class="btn-view-doc" (click)="viewDocument(doc.id, ver)" aria-label="View document version">
                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -152,7 +147,6 @@
                                 </button>
                               </div>
 
-                              <!-- Version metadata -->
                               <div class="version-meta">
                                 <div class="vmeta-item">
                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -181,7 +175,6 @@
                                 </div>
                               </div>
 
-                              <!-- Approval action audit -->
                               @if (ver.approvalAction) {
                                 <div class="audit-section">
                                   <h5 class="audit-heading">Audit Action</h5>
@@ -234,7 +227,6 @@
       </table>
     </div>
 
-    <!-- ── Pagination ──────────────────────────────────────────────────────── -->
     <div class="pagination-bar">
       <button class="page-btn page-nav"
               [disabled]="!myDocuments().hasPreviousPage"
@@ -271,4 +263,85 @@
     </div>
   }
 
+
+  @if (isModalOpen()) {
+    <div class="modal-overlay" (click)="closeModal()" id="doc-view-modal">
+      <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="modalFileName()">
+        <div class="modal-header">
+          <h3 class="modal-title">{{ modalFileName() }}</h3>
+          <button class="btn-modal-close" (click)="closeModal()" aria-label="Close modal">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" 
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+
+        <div class="modal-body">
+          @if (isModalLoading()) {
+            <div class="modal-loader">
+              <div class="spinner"></div>
+              <p>Fetching document preview…</p>
+            </div>
+          } @else if (modalError()) {
+            <div class="modal-error-alert">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <p>{{ modalError() }}</p>
+            </div>
+          } @else {
+            <div class="modal-preview-wrapper">
+              @if (modalFileType() === 'image') {
+                <img [src]="modalFileUrl()" class="preview-media preview-image" alt="Document preview image" />
+              } @else if (modalFileType() === 'pdf') {
+                <iframe [src]="modalFileUrl()" class="preview-media preview-pdf" title="PDF Document Preview"></iframe>
+              } @else {
+                <div class="preview-unsupported">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  <p>Preview not supported for this file format.</p>
+                  <a [href]="modalFileUrl()" [download]="modalFileName()" class="btn-fallback-download">
+                    Download File
+                  </a>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+
+        <div class="modal-footer">
+          @if (!isModalLoading() && !modalError() && modalFileUrl()) {
+            <a [href]="modalFileUrl()" target="_blank" class="btn-footer-secondary" id="btn-open-tab" aria-label="Open in new tab">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              Open in New Tab
+            </a>
+          }
+          <button class="btn-footer-primary" (click)="closeModal()" id="btn-close-modal">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Document Upload Modal -->
+  @if (isUploadOpen()) {
+    <app-upload-doc (close)="closeUploadModal()" (uploaded)="onUploadSuccess()"></app-upload-doc>
+  }
 </div>

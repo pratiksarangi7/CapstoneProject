@@ -6,6 +6,7 @@ import { AuthService } from './services/auth.service';
 import { DocumentService } from './services/document.service';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { authInterceptor } from './interceptors/authInterceptor';
+import { DepartmentService } from './services/department.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -13,6 +14,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
     AuthService,
-    DocumentService
+    DocumentService,
+    DepartmentService
   ]
 };

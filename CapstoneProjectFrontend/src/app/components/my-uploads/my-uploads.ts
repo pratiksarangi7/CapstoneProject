@@ -1,14 +1,17 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { DocumentService } from '../../services/document.service';
 import { MyUploadsApiResponse } from '../../dtos/my-uploads.response.dto';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DocumentVersionResponseDto } from '../../dtos/document-version.response.dto';
+import { UploadDoc } from '../upload-doc/upload-doc';
 
 @Component({
   selector: 'app-my-uploads',
-  imports: [],
+  imports: [UploadDoc],
   templateUrl: './my-uploads.html',
   styleUrl: './my-uploads.css',
 })
-export class MyUploads implements OnInit {
+export class MyUploads implements OnInit, OnDestroy {
   currentPage = signal(1);
   pageSize = signal(10);
 
@@ -25,7 +28,23 @@ export class MyUploads implements OnInit {
 
   expandedDocIds = signal<Set<number>>(new Set());
 
-  constructor(private documentService: DocumentService) { }
+  // Modal Signals
+  isModalOpen = signal(false);
+  isModalLoading = signal(false);
+  modalFileUrl = signal<SafeResourceUrl | null>(null);
+  modalFileType = signal<'image' | 'pdf' | 'other' | null>(null);
+  modalFileName = signal<string>('');
+  modalError = signal<string | null>(null);
+
+  rawFileUrl: string | null = null;
+
+  // Upload Signals
+  isUploadOpen = signal(false);
+
+  constructor(
+    private documentService: DocumentService,
+    private sanitizer: DomSanitizer
+  ) { }
 
   ngOnInit(): void {
     this.loadPage();
@@ -106,5 +125,71 @@ export class MyUploads implements OnInit {
   get pageNumbers(): number[] {
     const total = this.myDocuments().totalPages;
     return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  viewDocument(documentId: number, version: DocumentVersionResponseDto): void {
+    this.modalFileName.set(version.originalFileName);
+    this.isModalLoading.set(true);
+    this.modalError.set(null);
+    this.isModalOpen.set(true);
+
+    this.cleanupObjectURL();
+
+    this.documentService.viewDocumentApiCall(documentId, version.id).subscribe({
+      next: (blob: Blob) => {
+        const mimeType = version.mimeType || blob.type;
+        
+        if (mimeType.startsWith('image/')) {
+          this.modalFileType.set('image');
+        } else if (mimeType === 'application/pdf') {
+          this.modalFileType.set('pdf');
+        } else {
+          this.modalFileType.set('other');
+        }
+
+        this.rawFileUrl = URL.createObjectURL(blob);
+        this.modalFileUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.rawFileUrl));
+        this.isModalLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load document version file', err);
+        this.modalError.set('Could not load document preview. Please check your internet connection or try again later.');
+        this.isModalLoading.set(false);
+      }
+    });
+  }
+
+  cleanupObjectURL(): void {
+    if (this.rawFileUrl) {
+      URL.revokeObjectURL(this.rawFileUrl);
+      this.rawFileUrl = null;
+    }
+  }
+
+  closeModal(): void {
+    this.isModalOpen.set(false);
+    this.cleanupObjectURL();
+    this.modalFileUrl.set(null);
+    this.modalFileType.set(null);
+    this.modalFileName.set('');
+    this.modalError.set(null);
+  }
+
+  openUploadModal(): void {
+    this.isUploadOpen.set(true);
+  }
+
+  closeUploadModal(): void {
+    this.isUploadOpen.set(false);
+  }
+
+  onUploadSuccess(): void {
+    this.isUploadOpen.set(false);
+    this.currentPage.set(1);
+    this.loadPage();
+  }
+
+  ngOnDestroy(): void {
+    this.cleanupObjectURL();
   }
 }

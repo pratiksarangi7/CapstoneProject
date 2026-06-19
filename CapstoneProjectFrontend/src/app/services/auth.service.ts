@@ -20,8 +20,4 @@ export class AuthService {
         const url = baseUrl + "/Auth/register";
         return this.http.post(url, registerModel);
     }
-    public GetAllDepartments(): Observable<Department[]> {
-        const url = baseUrl + "/User/departments";
-        return this.http.get<Department[]>(url);
-    }
 }

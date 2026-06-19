@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 
 @Component({
   selector: 'app-to-approve',
@@ -6,4 +6,6 @@ import { Component } from '@angular/core';
   templateUrl: './to-approve.html',
   styleUrl: './to-approve.css',
 })
-export class ToApprove {}
+export class ToApprove {
+  
+}
