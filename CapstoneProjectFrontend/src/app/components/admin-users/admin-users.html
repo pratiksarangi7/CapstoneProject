@@ -1,0 +1,302 @@
+<div class="users-root">
+  <!-- Toolbar -->
+  <div class="users-toolbar">
+    <div class="toolbar-left">
+      <h2 class="section-heading">Portal Users</h2>
+      <span class="users-count" id="users-total-badge">
+        {{ usersResponse().totalCount }} {{ usersResponse().totalCount === 1 ? 'user' : 'users' }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+  <div class="loading-overlay" id="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading portal users...</p>
+  </div>
+  } @else {
+  <!-- Empty State -->
+  @if (usersResponse().items.length === 0) {
+  <div class="empty-state" id="empty-users-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+      <circle cx="9" cy="7" r="4"></circle>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    </svg>
+    <p>No users found in the system.</p>
+  </div>
+  } @else {
+  <!-- Users Table -->
+  <div class="table-wrapper">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th class="th-index">#</th>
+          <th>User</th>
+          <th>Email</th>
+          <th>Department</th>
+          <th class="th-center">Status</th>
+          <th class="th-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of usersResponse().items; track user.id; let idx = $index) {
+        <tr class="user-row" [class.user-row--inactive]="!user.isActive">
+          <td class="td-index">
+            {{ (currentPage() - 1) * pageSize() + idx + 1 }}
+          </td>
+          <td class="td-user">
+            <div class="user-avatar-initial">
+              {{ user.name.charAt(0).toUpperCase() }}
+            </div>
+            <div class="user-info-cell">
+              <span class="user-name">{{ user.name }}</span>
+              @if (user.isAdmin) {
+              <span class="badge badge-admin">Admin</span>
+              }
+            </div>
+          </td>
+          <td class="td-email">{{ user.email }}</td>
+          <td class="td-dept">
+            <span class="dept-pill">{{ user.departmentName || 'No Department' }}</span>
+          </td>
+          <td class="td-status th-center">
+            <span class="badge" [class.badge-active]="user.isActive" [class.badge-inactive]="!user.isActive">
+              {{ user.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td class="td-actions th-center">
+            <button class="btn-action-view" (click)="openUserDetails(user)"
+              [attr.aria-label]="'View details for ' + user.name">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              </svg>
+              View Details
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Bar -->
+  <div class="pagination-bar">
+    <button class="page-btn page-nav" [disabled]="!usersResponse().hasPreviousPage"
+      (click)="goToPage(currentPage() - 1)" aria-label="Previous page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
+    @for (pg of pageNumbers; track pg) {
+    <button class="page-btn" [class.page-btn--active]="pg === currentPage()" (click)="goToPage(pg)">
+      {{ pg }}
+    </button>
+    }
+
+    <button class="page-btn page-nav" [disabled]="!usersResponse().hasNextPage" (click)="goToPage(currentPage() + 1)"
+      aria-label="Next page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+
+    <span class="page-info">
+      Page {{ usersResponse().pageNumber }} of {{ usersResponse().totalPages }}
+      &nbsp;·&nbsp; {{ usersResponse().totalCount }} users
+    </span>
+  </div>
+  }
+  }
+
+  <!-- User Details Modal -->
+  @if (isModalOpen() && selectedUser()) {
+  <div class="modal-overlay" (click)="closeUserDetails()" id="user-details-modal">
+    <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true"
+      [attr.aria-label]="selectedUser()!.name + ' Details'">
+
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h3 class="modal-title">User Profile Details</h3>
+        <button class="btn-modal-close" (click)="closeUserDetails()" aria-label="Close modal">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <!-- Toast Message for Placeholders -->
+        @if (placeholderMessage()) {
+        <div class="placeholder-toast-banner">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="toast-icon">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>{{ placeholderMessage() }}</span>
+        </div>
+        }
+
+        <!-- User Card Header Summary -->
+        <div class="user-modal-summary">
+          <div class="summary-avatar">
+            {{ selectedUser()!.name.charAt(0).toUpperCase() }}
+          </div>
+          <div class="summary-details">
+            <h4>{{ selectedUser()!.name }}</h4>
+            <p class="summary-email">{{ selectedUser()!.email }}</p>
+            <div class="summary-badges">
+              @if (selectedUser()!.isAdmin) {
+              <span class="badge badge-admin">System Admin</span>
+              }
+              <span class="badge" [class.badge-active]="selectedUser()!.isActive"
+                [class.badge-inactive]="!selectedUser()!.isActive">
+                {{ selectedUser()!.isActive ? 'Active Account' : 'Deactivated Account' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Details Grid -->
+        <div class="details-section-title">Account Information</div>
+        <div class="details-grid">
+          <div class="details-card">
+            <span class="details-label">User ID</span>
+            <span class="details-value">#{{ selectedUser()!.id }}</span>
+          </div>
+          <div class="details-card">
+            <span class="details-label">Department</span>
+            <span class="details-value">{{ selectedUser()!.departmentName || 'No Department assigned' }}</span>
+          </div>
+          <div class="details-card">
+            <span class="details-label">Manager</span>
+            <span class="details-value">{{ selectedUser()!.managerName || 'No Manager assigned' }}</span>
+          </div>
+          <div class="details-card">
+            <span class="details-label">Access Level</span>
+            <span class="details-value">Level {{ selectedUser()!.level }}</span>
+          </div>
+        </div>
+
+        <!-- Future Administrative Controls -->
+        <div class="management-controls">
+          <div class="details-section-title">Administrative Actions (Future Routes)</div>
+
+          <div class="controls-grid">
+            <!-- Change Department -->
+            <div class="control-box">
+              <label for="change-dept-select" class="control-label">Change Department</label>
+              <div class="select-wrapper">
+                <select id="change-dept-select" class="control-select" (change)="onDepartmentChange($event)">
+                  <option value="" disabled selected>Select new department...</option>
+                  @for (dept of allDepartments(); track dept.id) {
+                  @if (dept.id!==selectedUser()?.departmentId) {
+                  <option [value]="dept.id">{{ dept.name }}</option>
+
+                  }
+                  }
+                </select>
+              </div>
+            </div>
+
+            <!-- Change Manager -->
+            <div class="control-box">
+              <label for="manager-search-input" class="control-label">Change Manager</label>
+              <div class="manager-search-wrapper">
+                <div class="manager-input-row">
+                  <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input id="manager-search-input" class="manager-search-input" type="text"
+                    placeholder="Search by name or email..."
+                    [ngModel]="managerSearchQuery()"
+                    (ngModelChange)="managerSearchQuery.set($event); onManagerSearchInput()"
+                    (blur)="isManagerDropdownOpen.set(false)"
+                    autocomplete="off" />
+                  @if (isManagersLoading()) {
+                  <span class="manager-loading-dot"></span>
+                  }
+                </div>
+                @if (isManagerDropdownOpen() && filteredManagers().length > 0) {
+                <ul class="manager-suggestions" (mousedown)="$event.preventDefault()">
+                  @for (m of filteredManagers(); track m.id) {
+                  <li class="manager-suggestion-item" (click)="selectManager(m)">
+                    <span class="suggestion-name">{{ m.name }}</span>
+                    <span class="suggestion-email">{{ m.email }}</span>
+                  </li>
+                  }
+                </ul>
+                } @else if (isManagerDropdownOpen() && managerSearchQuery().trim().length > 0 && filteredManagers().length === 0 && !isManagersLoading()) {
+                <div class="manager-no-results">No matching managers found</div>
+                }
+              </div>
+            </div>
+
+
+            <!-- Change Level -->
+            <div class="control-box">
+              <label for="change-level-select" class="control-label">Change Level</label>
+              <div class="select-wrapper">
+                <select id="change-level-select" class="control-select" (change)="onLevelChange($event)">
+                  <option value="" disabled selected>Select level...</option>
+                  <option value="1">Level 1</option>
+                  <option value="2">Level 2</option>
+                  <option value="3">Level 3</option>
+                  <option value="4">Level 4</option>
+                  <option value="5">Level 5</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Toggles -->
+          <div class="status-action-row">
+            <span class="status-action-label">Account Status Management</span>
+            @if (selectedUser()!.isActive) {
+            <button class="btn-deactivate" (click)="deactivateUser(selectedUser()!.id)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              Deactivate User Account
+            </button>
+            } @else {
+            <button class="btn-reactivate" (click)="reactivateUser(selectedUser()!.id)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              Reactivate User Account
+            </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="btn-footer-primary" (click)="closeUserDetails()">Close Profile</button>
+      </div>
+
+    </div>
+  </div>
+  }
+</div>
