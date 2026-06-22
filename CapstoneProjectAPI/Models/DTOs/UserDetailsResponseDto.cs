@@ -11,5 +11,6 @@ namespace CapstoneProjectAPI.Models.DTOs
         public int? ManagerId { get; set; }
         public string? ManagerName { get; set; }
         public int Level { get; set; }
+        public bool IsActive { get; set; }
     }
 }

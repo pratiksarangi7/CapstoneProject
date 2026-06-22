@@ -27,6 +27,14 @@ namespace CapstoneProjectAPI.Controllers
             return Ok(users);
         }
 
+        [HttpGet("users/{id:int}/potential-managers")]
+        public async Task<IActionResult> GetPotentialManagers(int id)
+        {
+            var managers = await _adminService.GetPotentialManagers(id);
+            return Ok(managers);
+        }
+
+
         [HttpPut("change-manager")]
         public async Task<IActionResult> ChangeUserManager([FromBody] ChangeUserManagerRequestDto request)
         {

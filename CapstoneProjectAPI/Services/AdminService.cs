@@ -46,6 +46,31 @@ namespace CapstoneProjectAPI.Services
                 TotalCount = totalCount
             };
         }
+        public async Task<List<UserDetailsResponseDto>> GetPotentialManagers(int userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("Get potential managers failed: User with ID {UserId} not found.", userId);
+                throw new EntityNotFoundException("User not found");
+            }
+
+            var potentialManagers = await _context.Users
+                .Include(u => u.Department)
+                .Include(u => u.Manager)
+                .Where(u => u.DepartmentId == user.DepartmentId
+                         && u.Level > user.Level
+                         && u.IsActive
+                         && u.Id != userId)
+                .OrderByDescending(u => u.Level)
+                .ToListAsync();
+
+            _logger.LogInformation(
+                "Found {Count} potential manager(s) for user {UserId} in department {DeptId} with level > {Level}.",
+                potentialManagers.Count, userId, user.DepartmentId, user.Level);
+
+            return _mapper.Map<List<UserDetailsResponseDto>>(potentialManagers);
+        }
 
         public async Task<bool> ChangeUserManager(ChangeUserManagerRequestDto request)
         {
@@ -70,6 +95,20 @@ namespace CapstoneProjectAPI.Services
                     _logger.LogWarning("Change manager failed: User with ID {UserId} attempted to assign themselves as their own manager.", request.UserId);
                     throw new ArgumentException("A user cannot be their own manager.");
                 }
+                if (manager.Level <= user.Level)
+                {
+                    _logger.LogWarning("Change manager failed: Proposed manager with ID {ManagerId} (Level {ManagerLevel}) must have a higher level than user with ID {UserId} (Level {UserLevel}).",
+                            request.ManagerId.Value, manager.Level, request.UserId, user.Level);
+
+                    throw new ArgumentException("A manager must have a strictly higher level than the user.");
+                }
+                if (manager.DepartmentId != user.DepartmentId)
+                {
+                    _logger.LogWarning("Change manager failed: User {UserId} (Dept {UserDeptId}) and manager {ManagerId} (Dept {ManagerDeptId}) must belong to the same department.",
+                            request.UserId, user.DepartmentId, request.ManagerId.Value, manager.DepartmentId);
+
+                    throw new ArgumentException("A user can only be assigned to a manager within their own department.");
+                }
             }
 
             var oldManagerId = user.ManagerId;
@@ -88,7 +127,9 @@ namespace CapstoneProjectAPI.Services
                 throw new ArgumentException("Level must be a positive integer.");
             }
 
-            var user = await _context.Users.FindAsync(request.UserId);
+            var user = await _context.Users
+                .Include(u => u.Manager)
+                .FirstOrDefaultAsync(u => u.Id == request.UserId);
             if (user == null)
             {
                 _logger.LogWarning("Change level failed: User with ID {UserId} not found.", request.UserId);
@@ -97,6 +138,11 @@ namespace CapstoneProjectAPI.Services
 
             var oldLevel = user.Level;
             user.Level = request.Level;
+            if (user.Manager != null && user.Manager.Level <= request.Level)
+            {
+                _logger.LogWarning("changing user level failed: user can't have level same as manager");
+                throw new ArgumentException("Manager's level can't be same as user's level. Update manager's level first");
+            }
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Successfully changed level of user {UserId} from {OldLevel} to {NewLevel}.", request.UserId, oldLevel, request.Level);
@@ -121,6 +167,8 @@ namespace CapstoneProjectAPI.Services
 
             var oldDeptId = user.DepartmentId;
             user.DepartmentId = request.DepartmentId;
+            user.ManagerId = null;
+
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Successfully changed department for user {UserId} from department {OldDeptId} to {NewDeptId}.", request.UserId, oldDeptId, request.DepartmentId);
