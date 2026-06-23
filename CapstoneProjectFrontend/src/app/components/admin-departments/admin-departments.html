@@ -1,1 +1,234 @@
-<p>admin-departments works!</p>
+<div class="depts-root">
+
+  <!-- ── Toolbar ───────────────────────────────────────────────────────────────── -->
+  <div class="depts-toolbar">
+    <div class="toolbar-left">
+      <div class="section-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+      </div>
+      <div>
+        <h2 class="section-heading">Departments</h2>
+        <p class="section-subheading">Manage organizational departments and their members</p>
+      </div>
+      <span class="dept-count-badge" id="dept-total-badge">
+        {{ departments().length }} {{ departments().length === 1 ? 'department' : 'departments' }}
+      </span>
+    </div>
+
+    <button class="btn-create" id="create-dept-btn" (click)="openCreateModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      New Department
+    </button>
+  </div>
+
+  <!-- ── Loading State ──────────────────────────────────────────────────────────── -->
+  @if (isLoading()) {
+  <div class="loading-overlay" id="dept-loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading departments...</p>
+  </div>
+  } @else {
+
+  <!-- ── Empty State ────────────────────────────────────────────────────────────── -->
+  @if (departments().length === 0) {
+  <div class="empty-state" id="dept-empty-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+    </svg>
+    <p>No departments found. Create one to get started.</p>
+    <button class="btn-create-empty" (click)="openCreateModal()">Create Department</button>
+  </div>
+  } @else {
+
+  <!-- ── Accordion List ─────────────────────────────────────────────────────────── -->
+  <div class="accordion-list" id="departments-accordion">
+    @for (dept of departments(); track dept.id; let idx = $index) {
+    <div class="accordion-item" [class.accordion-item--open]="isDeptOpen(dept.id)" id="dept-item-{{ dept.id }}">
+
+      <!-- Accordion Header -->
+      <button class="accordion-header" (click)="toggleDept(dept.id)"
+        [attr.aria-expanded]="isDeptOpen(dept.id)"
+        [attr.aria-controls]="'dept-panel-' + dept.id">
+        <div class="header-left">
+          <div class="dept-icon">
+            {{ getInitials(dept.name) }}
+          </div>
+          <div class="header-info">
+            <span class="dept-name">{{ dept.name }}</span>
+            <span class="member-count">
+              {{ dept.users.length }} {{ dept.users.length === 1 ? 'member' : 'members' }}
+            </span>
+          </div>
+        </div>
+        <div class="header-right">
+          <span class="dept-index-badge">#{{ idx + 1 }}</span>
+          <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </button>
+
+      <!-- Accordion Panel -->
+      <div class="accordion-panel" [id]="'dept-panel-' + dept.id" role="region"
+        [attr.aria-labelledby]="'dept-header-' + dept.id">
+        <div class="panel-inner">
+          @if (dept.users.length === 0) {
+          <div class="no-members">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+            </svg>
+            <span>No members in this department</span>
+          </div>
+          } @else {
+          <div class="members-grid">
+            @for (user of dept.users; track user.id) {
+            <div class="member-card" id="member-{{ user.id }}">
+              <div class="member-avatar" [class.member-avatar--admin]="user.isAdmin">
+                {{ getInitials(user.name) }}
+              </div>
+              <div class="member-info">
+                <div class="member-name-row">
+                  <span class="member-name">{{ user.name }}</span>
+                  @if (user.isAdmin) {
+                  <span class="badge badge-admin">Admin</span>
+                  }
+                </div>
+                <span class="member-email">{{ user.email }}</span>
+                <div class="member-meta">
+                  <span class="meta-pill">{{ getLevelLabel(user.level) }}</span>
+                  @if (user.managerName) {
+                  <span class="meta-pill meta-pill--manager">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    {{ user.managerName }}
+                  </span>
+                  }
+                </div>
+              </div>
+            </div>
+            }
+          </div>
+          }
+        </div>
+      </div>
+
+    </div>
+    }
+  </div>
+
+  }
+  }
+
+  <!-- ── Create Department Modal ────────────────────────────────────────────────── -->
+  @if (isModalOpen()) {
+  <div class="modal-overlay" (click)="closeCreateModal()" id="create-dept-modal">
+    <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true"
+      aria-label="Create New Department">
+
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-title-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </div>
+          <h3 class="modal-title">Create New Department</h3>
+        </div>
+        <button class="btn-modal-close" (click)="closeCreateModal()" aria-label="Close modal"
+          [disabled]="isCreating()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <!-- Success banner -->
+        @if (createSuccess()) {
+        <div class="alert alert-success" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          {{ createSuccess() }}
+        </div>
+        }
+
+        <!-- Error banner -->
+        @if (createError()) {
+        <div class="alert alert-error" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          {{ createError() }}
+        </div>
+        }
+
+        <!-- Input -->
+        <div class="form-group">
+          <label for="new-dept-name-input" class="form-label">Department Name</label>
+          <input
+            id="new-dept-name-input"
+            type="text"
+            class="form-input"
+            placeholder="e.g. Engineering, Finance, HR..."
+            [ngModel]="newDeptName()"
+            (ngModelChange)="newDeptName.set($event); createError.set(null)"
+            (keydown.enter)="submitCreateDepartment()"
+            [disabled]="isCreating()"
+            autocomplete="off"
+          />
+          <span class="form-hint">This name will be visible to all users in the portal.</span>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeCreateModal()" [disabled]="isCreating()">Cancel</button>
+        <button class="btn-submit" id="create-dept-submit-btn" (click)="submitCreateDepartment()"
+          [disabled]="isCreating() || !newDeptName().trim()">
+          @if (isCreating()) {
+          <span class="btn-spinner"></span>
+          Creating...
+          } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Create Department
+          }
+        </button>
+      </div>
+
+    </div>
+  </div>
+  }
+
+</div>

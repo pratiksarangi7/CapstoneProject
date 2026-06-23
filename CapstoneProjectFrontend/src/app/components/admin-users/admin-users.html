@@ -264,21 +264,167 @@
             </div>
           </div>
 
-          <!-- Status Toggles -->
-          <div class="status-action-row">
-            <span class="status-action-label">Account Status Management</span>
-            @if (selectedUser()!.isActive) {
-            <button class="btn-deactivate" (click)="deactivateUser(selectedUser()!.id)">
+          <!-- ── Danger Zone ──────────────────────────────────────────────── -->
+          @if (selectedUser()!.isActive) {
+          <div class="danger-zone">
+            <div class="danger-zone-header">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="15" y1="9" x2="9" y2="15"></line>
-                <line x1="9" y1="9" x2="15" y2="15"></line>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
               </svg>
-              Deactivate User Account
-            </button>
-            } @else {
-            <button class="btn-reactivate" (click)="reactivateUser(selectedUser()!.id)">
+              <span class="danger-zone-title">Danger Zone</span>
+              <span class="danger-zone-subtitle">These actions are irreversible — proceed with caution.</span>
+            </div>
+
+            <div class="danger-actions-grid">
+
+              <!-- Step 1: Reassign Documents -->
+              <div class="danger-action-card" id="reassign-docs-card">
+                <div class="danger-action-info">
+                  <span class="danger-action-name">Reassign Pending Documents</span>
+                  <span class="danger-action-desc">Transfer all pending document approvals from this user to another active user.</span>
+                </div>
+
+                @if (!isReassignPanelOpen()) {
+                <button class="btn-danger-secondary" (click)="openReassignPanel()" id="open-reassign-panel-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="16 3 21 3 21 8"></polyline>
+                    <line x1="4" y1="14" x2="21" y2="3"></line>
+                    <path d="M21 16v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"></path>
+                  </svg>
+                  Reassign Documents
+                </button>
+                } @else {
+                <div class="reject-panel" id="reassign-docs-panel">
+                  @if (reassignSuccess()) {
+                  <div class="reject-success-banner">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    <span>All pending documents have been successfully reassigned.</span>
+                  </div>
+                  } @else {
+                  <label for="reassign-to-select" class="reject-label">Select User to Reassign To <span class="required-star">*</span></label>
+                  <select id="reassign-to-select" class="reject-textarea" (change)="reassignToUserId.set(+$any($event.target).value); reassignError.set(null)" [disabled]="isReassigning()">
+                    <option value="null" disabled selected>Select user...</option>
+                    @for (u of allUsersList(); track u.id) {
+                      @if (u.id !== selectedUser()?.id) {
+                        <option [value]="u.id">{{ u.name }} ({{ u.email }})</option>
+                      }
+                    }
+                  </select>
+                  @if (reassignError()) {
+                  <span class="reject-error">{{ reassignError() }}</span>
+                  }
+                  <div class="reject-panel-actions">
+                    <button class="btn-ghost-cancel" (click)="closeReassignPanel()" [disabled]="isReassigning()">Cancel</button>
+                    <button class="btn-danger-confirm" id="confirm-reassign-btn"
+                      (click)="submitReassignDocuments()"
+                      [disabled]="isReassigning() || !reassignToUserId()">
+                      @if (isReassigning()) {
+                      <span class="btn-spinner-sm"></span>
+                      Reassigning...
+                      } @else {
+                      Confirm Reassignment
+                      }
+                    </button>
+                  </div>
+                  }
+                </div>
+                }
+              </div>
+
+              <!-- Step 2: Reject All Pending Docs -->
+              <div class="danger-action-card" id="reject-all-docs-card">
+                <div class="danger-action-info">
+                  <span class="danger-action-name">Reject All Pending Documents</span>
+                  <span class="danger-action-desc">Bulk-reject every document currently awaiting approval for this user. A reason is required.</span>
+                </div>
+
+                @if (!isRejectPanelOpen()) {
+                <button class="btn-danger-secondary" (click)="openRejectPanel()" id="open-reject-panel-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                  </svg>
+                  Reject All Pending
+                </button>
+                } @else {
+                <div class="reject-panel" id="reject-all-docs-panel">
+                  @if (rejectSuccess()) {
+                  <div class="reject-success-banner">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    <span>All pending documents have been rejected.</span>
+                  </div>
+                  } @else {
+                  <label for="reject-reason-input" class="reject-label">Rejection Reason <span class="required-star">*</span></label>
+                  <textarea
+                    id="reject-reason-input"
+                    class="reject-textarea"
+                    placeholder="Provide a clear reason for bulk rejection…"
+                    rows="3"
+                    [ngModel]="rejectReason()"
+                    (ngModelChange)="rejectReason.set($event); rejectError.set(null)"
+                    [disabled]="isRejecting()"
+                  ></textarea>
+                  @if (rejectError()) {
+                  <span class="reject-error">{{ rejectError() }}</span>
+                  }
+                  <div class="reject-panel-actions">
+                    <button class="btn-ghost-cancel" (click)="closeRejectPanel()" [disabled]="isRejecting()">Cancel</button>
+                    <button class="btn-danger-confirm" id="confirm-reject-all-btn"
+                      (click)="submitRejectAllDocs()"
+                      [disabled]="isRejecting() || !rejectReason().trim()">
+                      @if (isRejecting()) {
+                      <span class="btn-spinner-sm"></span>
+                      Rejecting…
+                      } @else {
+                      Confirm Rejection
+                      }
+                    </button>
+                  </div>
+                  }
+                </div>
+                }
+              </div>
+
+              <!-- Step 3: Deactivate Account -->
+              <div class="danger-action-card" id="deactivate-user-card">
+                <div class="danger-action-info">
+                  <span class="danger-action-name">Deactivate User Account</span>
+                  <span class="danger-action-desc">The user will lose all access. Ensure pending documents are handled first.</span>
+                </div>
+                <button class="btn-deactivate" (click)="deactivateUser(selectedUser()!.id)" id="deactivate-user-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                  Deactivate Account
+                </button>
+              </div>
+
+            </div>
+          </div>
+          } @else {
+          <!-- Reactivate row for inactive users -->
+          <div class="status-action-row">
+            <span class="status-action-label">Account Status Management</span>
+            <button class="btn-reactivate" (click)="reactivateUser(selectedUser()!.id)" id="reactivate-user-btn">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -286,8 +432,8 @@
               </svg>
               Reactivate User Account
             </button>
-            }
           </div>
+          }
         </div>
       </div>
 

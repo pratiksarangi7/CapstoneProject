@@ -1,1 +1,366 @@
-<p>admin-documents works!</p>
+<div class="admin-docs-root">
+
+  <!-- ── Toolbar ───────────────────────────────────────────────────────────────── -->
+  <div class="docs-toolbar">
+    <div class="toolbar-left">
+      <div class="section-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
+      <div>
+        <h2 class="section-heading">All Documents</h2>
+        <p class="section-subheading">System-wide document overview with full version history</p>
+      </div>
+      @if (!isLoading()) {
+      <span class="doc-count-badge" id="docs-total-badge">
+        {{ docsResponse().totalCount }} {{ docsResponse().totalCount === 1 ? 'document' : 'documents' }}
+      </span>
+      }
+    </div>
+  </div>
+
+  <!-- ── Loading ───────────────────────────────────────────────────────────────── -->
+  @if (isLoading()) {
+  <div class="loading-overlay" id="docs-loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading documents…</p>
+  </div>
+  } @else {
+
+  <!-- ── Empty State ────────────────────────────────────────────────────────────── -->
+  @if (docsResponse().items.length === 0) {
+  <div class="empty-state" id="docs-empty-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+    </svg>
+    <p>No documents found in the system.</p>
+  </div>
+  } @else {
+
+  <!-- ── Accordion Document List ────────────────────────────────────────────────── -->
+  <div class="accordion-list" id="admin-docs-accordion">
+    @for (doc of docsResponse().items; track doc.id; let idx = $index) {
+    <div class="accordion-item" [class.accordion-item--open]="isExpanded(doc.id)" id="doc-item-{{ doc.id }}">
+
+      <!-- ── Accordion Header (always visible) ─────────────────────────────── -->
+      <button class="accordion-header" (click)="toggleExpand(doc.id)"
+        [attr.aria-expanded]="isExpanded(doc.id)"
+        [attr.aria-controls]="'doc-panel-' + doc.id">
+
+        <div class="header-left">
+          <div class="doc-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </div>
+          <div class="header-info">
+            <span class="doc-title">{{ doc.title }}</span>
+            <div class="doc-meta-row">
+              <span class="meta-uploader">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                {{ doc.createdByUserName }}
+              </span>
+              <span class="meta-dept">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+                {{ doc.targetDepartmentName }}
+              </span>
+              <span class="meta-versions">{{ doc.versions.length }} version{{ doc.versions.length === 1 ? '' : 's' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <span class="idx-badge">#{{ (currentPage() - 1) * pageSize() + idx + 1 }}</span>
+          <span class="status-badge badge {{ statusClass(doc.documentStatus) }}">
+            {{ statusLabel(doc.documentStatus) }}
+          </span>
+          <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </button>
+
+      <!-- ── Accordion Panel (expanded detail) ─────────────────────────────── -->
+      <div class="accordion-panel" [id]="'doc-panel-' + doc.id">
+        <div class="panel-inner slide-down">
+
+          <!-- Meta Grid -->
+          <div class="detail-meta-grid">
+            <div class="meta-card">
+              <span class="meta-label">Document ID</span>
+              <span class="meta-value">#{{ doc.id }}</span>
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Uploaded By</span>
+              <span class="meta-value">{{ doc.createdByUserName }}
+                <em class="meta-sub">({{ doc.createdByUserEmail }})</em>
+              </span>
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Target Department</span>
+              <span class="meta-value">{{ doc.targetDepartmentName }}</span>
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Created At</span>
+              <span class="meta-value">{{ formatDate(doc.createdAt) }}</span>
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Current Approver</span>
+              @if (doc.currentApproverName) {
+              <span class="meta-value">{{ doc.currentApproverName }}
+                <em class="meta-sub">({{ doc.currentApproverDepartmentName }})</em>
+              </span>
+              } @else {
+              <span class="meta-value meta-na">—</span>
+              }
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Description</span>
+              <span class="meta-value">{{ doc.description || '—' }}</span>
+            </div>
+          </div>
+
+          <!-- Version History -->
+          <div class="versions-section">
+            <h4 class="versions-heading">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Version History ({{ doc.versions.length }})
+            </h4>
+
+            @if (doc.versions.length === 0) {
+            <p class="no-versions">No versions found for this document.</p>
+            } @else {
+            <div class="versions-list">
+              @for (ver of doc.versions; track ver.id) {
+              <div class="version-card" [class.version-card--current]="ver.isCurrentVersion"
+                id="version-{{ ver.id }}">
+
+                <!-- Version header -->
+                <div class="version-header">
+                  <div class="version-badge-row">
+                    <span class="version-num">v{{ ver.versionNumber }}</span>
+                    @if (ver.isCurrentVersion) {
+                    <span class="badge-current">Current</span>
+                    }
+                  </div>
+                  <button class="btn-view-doc" (click)="viewDocument(doc.id, ver); $event.stopPropagation()"
+                    aria-label="Preview version {{ ver.versionNumber }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    Preview
+                  </button>
+                </div>
+
+                <!-- Version meta -->
+                <div class="version-meta">
+                  <div class="vmeta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                      <polyline points="13 2 13 9 20 9"></polyline>
+                    </svg>
+                    <span>{{ ver.originalFileName }}</span>
+                  </div>
+                  <div class="vmeta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                      <line x1="8" y1="21" x2="16" y2="21"></line>
+                      <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                    <span>{{ ver.mimeType }} · {{ formatFileSize(ver.fileSize) }}</span>
+                  </div>
+                  <div class="vmeta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>{{ formatDate(ver.createdAt) }} · by {{ ver.uploadedByUserName }}</span>
+                  </div>
+                </div>
+
+                <!-- Approval Action -->
+                @if (ver.approvalAction) {
+                <div class="audit-section">
+                  <h5 class="audit-heading">Approval Action</h5>
+                  <div class="audit-card {{ actionClass(ver.approvalAction.action) }}">
+                    <div class="audit-row">
+                      <span class="audit-label">Action</span>
+                      <span class="audit-value action-chip {{ actionClass(ver.approvalAction.action) }}">
+                        {{ ver.approvalAction.action }}
+                      </span>
+                    </div>
+                    <div class="audit-row">
+                      <span class="audit-label">By</span>
+                      <span class="audit-value">{{ ver.approvalAction.approverUserName }}</span>
+                    </div>
+                    <div class="audit-row">
+                      <span class="audit-label">Date</span>
+                      <span class="audit-value">{{ formatDate(ver.approvalAction.createdAt) }}</span>
+                    </div>
+                    @if (ver.approvalAction.comments) {
+                    <div class="audit-row audit-comment">
+                      <span class="audit-label">Comments</span>
+                      <span class="audit-value">{{ ver.approvalAction.comments }}</span>
+                    </div>
+                    }
+                  </div>
+                </div>
+                } @else {
+                <div class="audit-no-action">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                  No approval action recorded for this version.
+                </div>
+                }
+
+              </div>
+              }
+            </div>
+            }
+          </div>
+
+        </div>
+      </div>
+    </div>
+    }
+  </div>
+
+  <!-- ── Pagination ─────────────────────────────────────────────────────────────── -->
+  <div class="pagination-bar">
+    <button class="page-btn page-nav" [disabled]="!docsResponse().hasPreviousPage"
+      (click)="goToPage(currentPage() - 1)" aria-label="Previous page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
+    @for (pg of pageNumbers; track pg) {
+    <button class="page-btn" [class.page-btn--active]="pg === currentPage()" (click)="goToPage(pg)">
+      {{ pg }}
+    </button>
+    }
+
+    <button class="page-btn page-nav" [disabled]="!docsResponse().hasNextPage"
+      (click)="goToPage(currentPage() + 1)" aria-label="Next page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+
+    <span class="page-info">
+      Page {{ docsResponse().pageNumber }} of {{ docsResponse().totalPages }}
+      &nbsp;·&nbsp; {{ docsResponse().totalCount }} documents
+    </span>
+  </div>
+
+  }
+  }
+
+  <!-- ── Document Preview Modal ─────────────────────────────────────────────────── -->
+  @if (isModalOpen()) {
+  <div class="modal-overlay" (click)="closeModal()" id="doc-preview-modal">
+    <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true"
+      [attr.aria-label]="modalFileName()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ modalFileName() }}</h3>
+        <button class="btn-modal-close" (click)="closeModal()" aria-label="Close preview">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        @if (isModalLoading()) {
+        <div class="modal-loader">
+          <div class="spinner"></div>
+          <p>Fetching document preview…</p>
+        </div>
+        } @else if (modalError()) {
+        <div class="modal-error-alert">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <p>{{ modalError() }}</p>
+        </div>
+        } @else {
+        <div class="modal-preview-wrapper">
+          @if (modalFileType() === 'image') {
+          <img [src]="modalFileUrl()" class="preview-media preview-image" alt="Document preview" />
+          } @else if (modalFileType() === 'pdf') {
+          <iframe [src]="modalFileUrl()" class="preview-media preview-pdf" title="PDF Preview"></iframe>
+          } @else {
+          <div class="preview-unsupported">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <p>Preview not supported for this file format.</p>
+            <a [href]="modalFileUrl()" [download]="modalFileName()" class="btn-fallback-download">Download File</a>
+          </div>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        @if (!isModalLoading() && !modalError() && modalFileUrl()) {
+        <a [href]="modalFileUrl()" target="_blank" class="btn-footer-secondary" id="btn-open-tab" aria-label="Open in new tab">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          Open in New Tab
+        </a>
+        }
+        <button class="btn-footer-primary" (click)="closeModal()" id="btn-close-preview">Close</button>
+      </div>
+    </div>
+  </div>
+  }
+
+</div>

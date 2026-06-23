@@ -9,6 +9,7 @@ import { authInterceptor } from './interceptors/authInterceptor';
 import { DepartmentService } from './services/department.service';
 import { UserService } from './services/user.service';
 import { AdminService } from './services/admin.service';
+import { AuditlogService } from './services/auditlogs.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,6 +20,7 @@ export const appConfig: ApplicationConfig = {
     DocumentService,
     DepartmentService,
     UserService,
-    AdminService
+    AdminService,
+    AuditlogService
   ]
 };

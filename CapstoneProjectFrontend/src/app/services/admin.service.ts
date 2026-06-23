@@ -6,6 +6,12 @@ import { Observable } from "rxjs";
 import { ChangeDepartmentRequestDto } from "../dtos/change-department.request.dto";
 import { ChangeLevelRequestDto } from "../dtos/change-level.request.dto";
 import { ChangeManagerRequestDto } from "../dtos/change-manager.request.dto";
+import { DepartmentResponseDto } from "../dtos/department.response.dto";
+import { AddDepartmentRequestDto } from "../dtos/add-department.request.dto";
+import { UserDocumentResponseDto } from "../dtos/user-document.response.dto";
+import { PaginatedResponse } from "../helpers";
+import { ReassignDocumentsRequestDto } from "../dtos/reassign-documents.request.dto";
+import { RejectAllDocs } from "../dtos/reject-all-docs.request.dto";
 
 @Injectable({
     providedIn: "root"
@@ -43,5 +49,28 @@ export class AdminService {
     public getPotentialManagers(userId: number): Observable<UserDetails[]> {
         const url = `${baseUrl}/admin/users/${userId}/potential-managers`;
         return this.http.get<UserDetails[]>(url);
+    }
+    public getDepartments(): Observable<DepartmentResponseDto[]> {
+        const url = `${baseUrl}/Admin/departments`;
+        return this.http.get<DepartmentResponseDto[]>(url);
+    }
+    public createNewDepartments(body: AddDepartmentRequestDto) {
+        const url = `${baseUrl}/admin/department`;
+        return this.http.post(url, body);
+    }
+    public getAllDocuments(pageNumber: number = 1, pageSize: number = 10): Observable<PaginatedResponse<UserDocumentResponseDto[]>> {
+        const params = new HttpParams();
+        params.set("pageNumber", pageNumber);
+        params.set("pageSize", pageSize);
+        const url = `${baseUrl}/admin/documents/all`;
+        return this.http.get<PaginatedResponse<UserDocumentResponseDto[]>>(url, { params });
+    }
+    public reassignDocuments(body: ReassignDocumentsRequestDto) {
+        const url = `${baseUrl}/admin/reassign-documents`;
+        return this.http.put(url, body);
+    }
+    public rejectAllDocs(userId: number, body: RejectAllDocs) {
+        const url = `${baseUrl}/admin/users/${userId}/reject-pending-documents`;
+        return this.http.put(url, body);
     }
 }
