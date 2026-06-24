@@ -3,6 +3,8 @@ import { Injectable } from "@angular/core";
 import { baseUrl } from "../../environment";
 import { Observable } from "rxjs";
 import { OtherDepartmentUsersResponseDto } from "../dtos/other-departments-users.response.dto";
+import { UserProfileResponseDto } from "../dtos/user-profile.response.dto";
+import { ChangePasswordRequestDto } from "../dtos/change-password.request.dto";
 
 @Injectable({ providedIn: "root" })
 
@@ -13,4 +15,12 @@ export class UserService {
         const url = `${baseUrl}/User/external`;
         return this.http.get<OtherDepartmentUsersResponseDto[]>(url);
     }
-}
+    public getProfileDetails(): Observable<UserProfileResponseDto> {
+        const url = `${baseUrl}/User/me`;
+        return this.http.get<UserProfileResponseDto>(url);
+    }
+    public changePassword(body: ChangePasswordRequestDto) {
+        const url = `${baseUrl}/User/me/change-password`;
+        return this.http.put(url, body);
+    }
+}

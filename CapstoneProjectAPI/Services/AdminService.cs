@@ -23,19 +23,32 @@ namespace CapstoneProjectAPI.Services
             _mapper = mapper;
             _logger = logger;
         }
-        public async Task<PagedResult<UserDetailsResponseDto>> GetUsers(int pageNumber = 1, int pageSize = 10)
+        public async Task<PagedResult<UserDetailsResponseDto>> GetUsers(int pageNumber = 1, int pageSize = 10, string search = "")
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
-            var query = _context.Users
+
+            var query = _context.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string lowerSearch = search.ToLower();
+
+                query = query.Where(u => u.Name.ToLower().Contains(lowerSearch) ||
+                                             u.Email.ToLower().Contains(lowerSearch) ||
+                                             u.Department.Name.ToLower().Contains(lowerSearch));
+            }
+
+            int totalCount = await query.CountAsync();
+
+            var users = await query
                 .Include(u => u.Department)
                 .Include(u => u.Manager)
-                .OrderBy(u => u.Id);
-            int totalCount = await query.CountAsync();
-            var users = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+                .OrderBy(u => u.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
             var mappedUsers = _mapper.Map<List<UserDetailsResponseDto>>(users);
 
             return new PagedResult<UserDetailsResponseDto>

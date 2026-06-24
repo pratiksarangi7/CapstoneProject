@@ -19,11 +19,12 @@ import { RejectAllDocs } from "../dtos/reject-all-docs.request.dto";
 export class AdminService {
     constructor(private http: HttpClient) {
     }
-    public getUsersApiCall(pageNumber: number = 1, pageSize: number = 10): Observable<UserDetailsResponseDto> {
+    public getUsersApiCall(pageNumber: number = 1, pageSize: number = 10, search: string = ""): Observable<UserDetailsResponseDto> {
         const url = `${baseUrl}/admin/users`;
         const params = new HttpParams()
             .set('pageNumber', pageNumber.toString())
-            .set('pageSize', pageSize.toString());
+            .set('pageSize', pageSize.toString())
+            .set('search', search);
         return this.http.get<UserDetailsResponseDto>(url, { params });
     }
     public deactivateUser(userId: number) {

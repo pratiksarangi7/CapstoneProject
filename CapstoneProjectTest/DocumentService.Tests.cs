@@ -60,11 +60,16 @@ namespace CapstoneProjectTest
             mockFile.Setup(f => f.FileName).Returns(fileName);
             mockFile.Setup(f => f.ContentType).Returns(contentType);
             mockFile.Setup(f => f.Length).Returns(length);
+
+            // Provide a real stream for SHA-256 hashing (ComputeSha256HashAsync calls OpenReadStream).
+            byte[] dummyContent = System.Text.Encoding.UTF8.GetBytes("Dummy file content");
+            mockFile.Setup(f => f.OpenReadStream())
+                .Returns(() => new MemoryStream(dummyContent));
+
             mockFile.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
                 .Callback<Stream, CancellationToken>((stream, token) =>
                 {
-                    byte[] bytes = System.Text.Encoding.UTF8.GetBytes("Dummy file content");
-                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Write(dummyContent, 0, dummyContent.Length);
                 })
                 .Returns(Task.CompletedTask);
             return mockFile;

@@ -193,7 +193,7 @@
 
         <!-- Future Administrative Controls -->
         <div class="management-controls">
-          <div class="details-section-title">Administrative Actions (Future Routes)</div>
+          <div class="details-section-title">Administrative Actions</div>
 
           <div class="controls-grid">
             <!-- Change Department -->
@@ -223,11 +223,9 @@
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
                   <input id="manager-search-input" class="manager-search-input" type="text"
-                    placeholder="Search by name or email..."
-                    [ngModel]="managerSearchQuery()"
+                    placeholder="Search by name or email..." [ngModel]="managerSearchQuery()"
                     (ngModelChange)="managerSearchQuery.set($event); onManagerSearchInput()"
-                    (blur)="isManagerDropdownOpen.set(false)"
-                    autocomplete="off" />
+                    (blur)="isManagerDropdownOpen.set(false)" autocomplete="off" />
                   @if (isManagersLoading()) {
                   <span class="manager-loading-dot"></span>
                   }
@@ -241,7 +239,8 @@
                   </li>
                   }
                 </ul>
-                } @else if (isManagerDropdownOpen() && managerSearchQuery().trim().length > 0 && filteredManagers().length === 0 && !isManagersLoading()) {
+                } @else if (isManagerDropdownOpen() && managerSearchQuery().trim().length > 0 &&
+                filteredManagers().length === 0 && !isManagersLoading()) {
                 <div class="manager-no-results">No matching managers found</div>
                 }
               </div>
@@ -270,7 +269,8 @@
             <div class="danger-zone-header">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                </path>
                 <line x1="12" y1="9" x2="12" y2="13"></line>
                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
               </svg>
@@ -284,7 +284,8 @@
               <div class="danger-action-card" id="reassign-docs-card">
                 <div class="danger-action-info">
                   <span class="danger-action-name">Reassign Pending Documents</span>
-                  <span class="danger-action-desc">Transfer all pending document approvals from this user to another active user.</span>
+                  <span class="danger-action-desc">Transfer all pending document approvals from this user to another
+                    active user.</span>
                 </div>
 
                 @if (!isReassignPanelOpen()) {
@@ -309,22 +310,25 @@
                     <span>All pending documents have been successfully reassigned.</span>
                   </div>
                   } @else {
-                  <label for="reassign-to-select" class="reject-label">Select User to Reassign To <span class="required-star">*</span></label>
-                  <select id="reassign-to-select" class="reject-textarea" (change)="reassignToUserId.set(+$any($event.target).value); reassignError.set(null)" [disabled]="isReassigning()">
+                  <label for="reassign-to-select" class="reject-label">Select User to Reassign To <span
+                      class="required-star">*</span></label>
+                  <select id="reassign-to-select" class="reject-textarea"
+                    (change)="reassignToUserId.set(+$any($event.target).value); reassignError.set(null)"
+                    [disabled]="isReassigning()">
                     <option value="null" disabled selected>Select user...</option>
                     @for (u of allUsersList(); track u.id) {
-                      @if (u.id !== selectedUser()?.id) {
-                        <option [value]="u.id">{{ u.name }} ({{ u.email }})</option>
-                      }
+                    @if (u.id !== selectedUser()?.id) {
+                    <option [value]="u.id">{{ u.name }} ({{ u.email }})</option>
+                    }
                     }
                   </select>
                   @if (reassignError()) {
                   <span class="reject-error">{{ reassignError() }}</span>
                   }
                   <div class="reject-panel-actions">
-                    <button class="btn-ghost-cancel" (click)="closeReassignPanel()" [disabled]="isReassigning()">Cancel</button>
-                    <button class="btn-danger-confirm" id="confirm-reassign-btn"
-                      (click)="submitReassignDocuments()"
+                    <button class="btn-ghost-cancel" (click)="closeReassignPanel()"
+                      [disabled]="isReassigning()">Cancel</button>
+                    <button class="btn-danger-confirm" id="confirm-reassign-btn" (click)="submitReassignDocuments()"
                       [disabled]="isReassigning() || !reassignToUserId()">
                       @if (isReassigning()) {
                       <span class="btn-spinner-sm"></span>
@@ -343,7 +347,8 @@
               <div class="danger-action-card" id="reject-all-docs-card">
                 <div class="danger-action-info">
                   <span class="danger-action-name">Reject All Pending Documents</span>
-                  <span class="danger-action-desc">Bulk-reject every document currently awaiting approval for this user. A reason is required.</span>
+                  <span class="danger-action-desc">Bulk-reject every document currently awaiting approval for this user.
+                    A reason is required.</span>
                 </div>
 
                 @if (!isRejectPanelOpen()) {
@@ -370,23 +375,19 @@
                     <span>All pending documents have been rejected.</span>
                   </div>
                   } @else {
-                  <label for="reject-reason-input" class="reject-label">Rejection Reason <span class="required-star">*</span></label>
-                  <textarea
-                    id="reject-reason-input"
-                    class="reject-textarea"
-                    placeholder="Provide a clear reason for bulk rejection…"
-                    rows="3"
-                    [ngModel]="rejectReason()"
+                  <label for="reject-reason-input" class="reject-label">Rejection Reason <span
+                      class="required-star">*</span></label>
+                  <textarea id="reject-reason-input" class="reject-textarea"
+                    placeholder="Provide a clear reason for bulk rejection…" rows="3" [ngModel]="rejectReason()"
                     (ngModelChange)="rejectReason.set($event); rejectError.set(null)"
-                    [disabled]="isRejecting()"
-                  ></textarea>
+                    [disabled]="isRejecting()"></textarea>
                   @if (rejectError()) {
                   <span class="reject-error">{{ rejectError() }}</span>
                   }
                   <div class="reject-panel-actions">
-                    <button class="btn-ghost-cancel" (click)="closeRejectPanel()" [disabled]="isRejecting()">Cancel</button>
-                    <button class="btn-danger-confirm" id="confirm-reject-all-btn"
-                      (click)="submitRejectAllDocs()"
+                    <button class="btn-ghost-cancel" (click)="closeRejectPanel()"
+                      [disabled]="isRejecting()">Cancel</button>
+                    <button class="btn-danger-confirm" id="confirm-reject-all-btn" (click)="submitRejectAllDocs()"
                       [disabled]="isRejecting() || !rejectReason().trim()">
                       @if (isRejecting()) {
                       <span class="btn-spinner-sm"></span>
@@ -405,7 +406,8 @@
               <div class="danger-action-card" id="deactivate-user-card">
                 <div class="danger-action-info">
                   <span class="danger-action-name">Deactivate User Account</span>
-                  <span class="danger-action-desc">The user will lose all access. Ensure pending documents are handled first.</span>
+                  <span class="danger-action-desc">The user will lose all access. Ensure pending documents are handled
+                    first.</span>
                 </div>
                 <button class="btn-deactivate" (click)="deactivateUser(selectedUser()!.id)" id="deactivate-user-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"

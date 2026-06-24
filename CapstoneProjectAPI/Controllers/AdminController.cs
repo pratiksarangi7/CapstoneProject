@@ -21,9 +21,9 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("users")]
-        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetUsers([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string search = "")
         {
-            var users = await _adminService.GetUsers(pageNumber, pageSize);
+            var users = await _adminService.GetUsers(pageNumber, pageSize, search);
             return Ok(users);
         }
 
@@ -75,7 +75,7 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("documents/all")]
-        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber=1, int pageSize=10)
+        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, int pageSize = 10)
         {
             var documents = await _adminService.GetAllDocuments(pageNumber, pageSize);
             return Ok(documents);

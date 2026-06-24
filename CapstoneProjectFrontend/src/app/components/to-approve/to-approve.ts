@@ -37,24 +37,20 @@ export class ToApprove implements OnInit, OnDestroy {
 
   expandedDocIds = signal<Set<number>>(new Set());
 
-  // Action modal state
   isActionModalOpen = signal(false);
   selectedDocument = signal<UserDocumentResponseDto | null>(null);
   selectedVersion = signal<DocumentVersionResponseDto | null>(null);
   actionComments = '';
   isApproveDropdownOpen = signal(false);
 
-  // Pending action (chosen but awaiting target user selection for transfer actions)
   pendingActionType = signal<PendingActionType>(null);
 
-  // User search state
   isUserSearchModalOpen = signal(false);
   allOtherDeptUsers = signal<OtherDepartmentUsersResponseDto[]>([]);
   isUsersLoading = signal(false);
   userSearchQuery = '';
   selectedTargetUser = signal<OtherDepartmentUsersResponseDto | null>(null);
 
-  // Preview modal state
   isPreviewOpen = signal(false);
   isPreviewLoading = signal(false);
   previewFileUrl = signal<SafeResourceUrl | null>(null);
@@ -133,7 +129,6 @@ export class ToApprove implements OnInit, OnDestroy {
     return Array.from({ length: total }, (_, i) => i + 1);
   }
 
-  // ── Action Modal ─────────────────────────────────────────────────────────
   openActionModal(doc: UserDocumentResponseDto, ver: DocumentVersionResponseDto): void {
     this.selectedDocument.set(doc);
     this.selectedVersion.set(ver);
@@ -158,7 +153,6 @@ export class ToApprove implements OnInit, OnDestroy {
     this.isApproveDropdownOpen.update(v => !v);
   }
 
-  // ── User Search Modal ─────────────────────────────────────────────────────
   openUserSearchModal(actionType: PendingActionType): void {
     this.pendingActionType.set(actionType);
     this.isApproveDropdownOpen.set(false);
@@ -208,12 +202,9 @@ export class ToApprove implements OnInit, OnDestroy {
     this.executeTransferAction(action, target.id);
   }
 
-  // ── Execute Actions ───────────────────────────────────────────────────────
-  /** Called for non-transfer approve actions (Approve Completely, Approve & Forward, Reject) */
   executeAction(actionType: string): void {
     if (!this.selectedDocument() || !this.selectedVersion()) return;
 
-    // For transfer-requiring actions, open user search first
     if (actionType === 'Approve & Transfer' || actionType === 'Transfer') {
       this.openUserSearchModal(actionType as PendingActionType);
       return;
@@ -297,7 +288,6 @@ export class ToApprove implements OnInit, OnDestroy {
     });
   }
 
-  // ── Preview Modal ─────────────────────────────────────────────────────────
   viewDocument(documentId: number, version: DocumentVersionResponseDto): void {
     this.previewFileName.set(version.originalFileName);
     this.isPreviewLoading.set(true);

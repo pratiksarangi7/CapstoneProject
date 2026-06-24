@@ -184,6 +184,10 @@ namespace CapstoneProjectTest
             };
             await _authService.Register(registerRequest);
 
+            var registeredUser = await _context.Users.FirstAsync(u => u.Email == registerRequest.Email);
+            registeredUser.IsActive = true;
+            await _context.SaveChangesAsync();
+
             var loginRequest = new LoginRequestDto
             {
                 Email = "login.test@test.com",
