@@ -47,9 +47,10 @@ export class AdminService {
         const url = `${baseUrl}/admin/change-manager`;
         return this.http.put(url, changeManagerRequestDto);
     }
-    public getPotentialManagers(userId: number): Observable<UserDetails[]> {
+    public getPotentialManagers(userId: number, search: string=""): Observable<UserDetails[]> {
         const url = `${baseUrl}/admin/users/${userId}/potential-managers`;
-        return this.http.get<UserDetails[]>(url);
+        const params=new HttpParams().set("search", search);
+        return this.http.get<UserDetails[]>(url, {params});
     }
     public getDepartments(): Observable<DepartmentResponseDto[]> {
         const url = `${baseUrl}/Admin/departments`;

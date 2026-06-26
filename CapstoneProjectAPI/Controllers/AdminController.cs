@@ -28,9 +28,9 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("users/{id:int}/potential-managers")]
-        public async Task<IActionResult> GetPotentialManagers(int id)
+        public async Task<IActionResult> GetPotentialManagers(int id, string search="")
         {
-            var managers = await _adminService.GetPotentialManagers(id);
+            var managers = await _adminService.GetPotentialManagers(id, search);
             return Ok(managers);
         }
 

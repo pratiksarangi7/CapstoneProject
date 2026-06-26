@@ -50,8 +50,6 @@ namespace CapstoneProjectAPI.Controllers
 
             await _documentService.WithdrawDocumentAsync(id, requestingUserId);
             return NoContent();
-
-
         }
 
         [HttpGet("my-uploads")]

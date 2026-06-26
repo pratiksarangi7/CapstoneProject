@@ -17,6 +17,8 @@ export class AdminUsers implements OnInit {
   currentPage = signal(1);
   pageSize = signal(10);
   isLoading = signal(false);
+  mainSearchQuery = signal('');
+  private mainSearchTimeout: any;
 
   usersResponse = signal<UserDetailsResponseDto>({
     items: [],
@@ -36,32 +38,26 @@ export class AdminUsers implements OnInit {
   managerSearchQuery = signal('');
   isManagerDropdownOpen = signal(false);
   isManagersLoading = signal(false);
-
-  filteredManagers = computed(() => {
-    const q = this.managerSearchQuery().trim().toLowerCase();
-    if (!q) return [];
-    return this.potentialManagers().filter(m =>
-      m.name.toLowerCase().includes(q) ||
-      m.email.toLowerCase().includes(q)
-    );
-  });
+  private managerSearchTimeout: any;
 
   placeholderMessage = signal<string | null>(null);
 
-  // ── Reject-all-docs danger zone ───────────────────────────────────────────
   isRejectPanelOpen = signal(false);
   rejectReason = signal('');
   isRejecting = signal(false);
   rejectError = signal<string | null>(null);
   rejectSuccess = signal(false);
 
-  // ── Reassign documents danger zone ────────────────────────────────────────
   isReassignPanelOpen = signal(false);
   reassignToUserId = signal<number | null>(null);
   isReassigning = signal(false);
   reassignError = signal<string | null>(null);
   reassignSuccess = signal(false);
   allUsersList = signal<UserDetails[]>([]);
+  isReassignDropdownOpen = signal(false);
+  isReassignSearchLoading = signal(false);
+  reassignSearchQuery = signal('');
+  private reassignSearchTimeout: any;
 
   constructor(
     private adminService: AdminService,
@@ -71,22 +67,12 @@ export class AdminUsers implements OnInit {
   ngOnInit(): void {
     this.loadPage();
     this.loadDepartments();
-    this.loadAllUsersForReassign();
-  }
-
-  loadAllUsersForReassign(): void {
-    this.adminService.getUsersApiCall(1, 100).subscribe({
-      next: (data) => {
-        this.allUsersList.set(data.items);
-      },
-      error: (err) => console.error('Failed to load users for reassignment', err)
-    });
   }
 
   loadPage(): void {
     this.isLoading.set(true);
     this.adminService
-      .getUsersApiCall(this.currentPage(), this.pageSize())
+      .getUsersApiCall(this.currentPage(), this.pageSize(), this.mainSearchQuery())
       .subscribe({
         next: (data) => {
           this.usersResponse.set(data);
@@ -97,6 +83,17 @@ export class AdminUsers implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  onMainSearchInput(query: string): void {
+    this.mainSearchQuery.set(query);
+    this.currentPage.set(1);
+    if (this.mainSearchTimeout) {
+      clearTimeout(this.mainSearchTimeout);
+    }
+    this.mainSearchTimeout = setTimeout(() => {
+      this.loadPage();
+    }, 500);
   }
 
   loadDepartments(): void {
@@ -110,12 +107,16 @@ export class AdminUsers implements OnInit {
     });
   }
 
-  loadPotentialManagers(userId: number): void {
+  loadPotentialManagers(userId: number, query: string = ''): void {
+    if (!query.trim()) {
+      this.potentialManagers.set([]);
+      this.isManagersLoading.set(false);
+      return;
+    }
+    
     this.isManagersLoading.set(true);
-    this.potentialManagers.set([]);
-    this.adminService.getPotentialManagers(userId).subscribe({
+    this.adminService.getPotentialManagers(userId, query).subscribe({
       next: (data) => {
-        console.log(data);
         this.potentialManagers.set(data);
         this.isManagersLoading.set(false);
       },
@@ -143,7 +144,6 @@ export class AdminUsers implements OnInit {
     this.isModalOpen.set(true);
     this.placeholderMessage.set(null);
     this.resetManagerSearch();
-    this.loadPotentialManagers(user.id);
   }
 
   closeUserDetails(): void {
@@ -155,11 +155,13 @@ export class AdminUsers implements OnInit {
     this.closeReassignPanel();
   }
 
-  // ── Reassign documents ────────────────────────────────────────────────────
   openReassignPanel(): void {
     this.reassignToUserId.set(null);
     this.reassignError.set(null);
     this.reassignSuccess.set(false);
+    this.reassignSearchQuery.set('');
+    this.isReassignDropdownOpen.set(false);
+    this.allUsersList.set([]);
     this.isReassignPanelOpen.set(true);
   }
 
@@ -168,6 +170,48 @@ export class AdminUsers implements OnInit {
     this.reassignToUserId.set(null);
     this.reassignError.set(null);
     this.reassignSuccess.set(false);
+    this.reassignSearchQuery.set('');
+    this.isReassignDropdownOpen.set(false);
+  }
+
+  onReassignSearchInput(query: string): void {
+    this.reassignSearchQuery.set(query);
+    this.isReassignDropdownOpen.set(query.trim().length > 0);
+    this.reassignToUserId.set(null);
+
+    if (this.reassignSearchTimeout) {
+      clearTimeout(this.reassignSearchTimeout);
+    }
+
+    this.reassignSearchTimeout = setTimeout(() => {
+      this.fetchUsersForReassign(query);
+    }, 500);
+  }
+
+  fetchUsersForReassign(query: string): void {
+    if (!query.trim()) {
+      this.allUsersList.set([]);
+      this.isReassignSearchLoading.set(false);
+      return;
+    }
+    this.isReassignSearchLoading.set(true);
+    this.adminService.getUsersApiCall(1, 20, query).subscribe({
+      next: (data) => {
+        this.allUsersList.set(data.items);
+        this.isReassignSearchLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load users for reassignment', err);
+        this.isReassignSearchLoading.set(false);
+      }
+    });
+  }
+
+  selectReassignUser(user: UserDetails): void {
+    this.reassignToUserId.set(user.id);
+    this.reassignSearchQuery.set(user.name);
+    this.isReassignDropdownOpen.set(false);
+    this.reassignError.set(null);
   }
 
   submitReassignDocuments(): void {
@@ -200,7 +244,6 @@ export class AdminUsers implements OnInit {
     });
   }
 
-  // ── Reject all pending documents ──────────────────────────────────────────
   openRejectPanel(): void {
     this.rejectReason.set('');
     this.rejectError.set(null);
@@ -247,8 +290,20 @@ export class AdminUsers implements OnInit {
     this.potentialManagers.set([]);
   }
 
-  onManagerSearchInput(): void {
-    this.isManagerDropdownOpen.set(this.managerSearchQuery().trim().length > 0);
+  onManagerSearchInput(query: string): void {
+    this.managerSearchQuery.set(query);
+    this.isManagerDropdownOpen.set(query.trim().length > 0);
+    
+    const user = this.selectedUser();
+    if (!user) return;
+
+    if (this.managerSearchTimeout) {
+      clearTimeout(this.managerSearchTimeout);
+    }
+
+    this.managerSearchTimeout = setTimeout(() => {
+      this.loadPotentialManagers(user.id, query);
+    }, 500);
   }
 
   selectManager(manager: UserDetails): void {

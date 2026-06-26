@@ -29,25 +29,36 @@ namespace CapstoneProjectAPI.Services
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
             var query = _context.Users.AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(search))
+            bool isSearching = !string.IsNullOrWhiteSpace(search);
+            if (isSearching)
             {
-                string lowerSearch = search.ToLower();
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    string lowerSearch = search.ToLower();
 
-                query = query.Where(u => u.Name.ToLower().Contains(lowerSearch) ||
-                                             u.Email.ToLower().Contains(lowerSearch) ||
-                                             u.Department.Name.ToLower().Contains(lowerSearch));
+                    query = query.Where(u => u.Name.ToLower().Contains(lowerSearch) ||
+                                                 u.Email.ToLower().Contains(lowerSearch) ||
+                                                 u.Department.Name.ToLower().Contains(lowerSearch));
+                }
             }
 
             int totalCount = await query.CountAsync();
-
-            var users = await query
-                .Include(u => u.Department)
-                .Include(u => u.Manager)
-                .OrderBy(u => u.Id)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
+            var executionQuery = query.Include(u => u.Department)
+                                    .Include(u => u.Manager)
+                                    .OrderBy(u => u.Id);
+            List<User> users;
+            if (isSearching)
+            {
+                users = await executionQuery.ToListAsync();
+                pageSize = totalCount > 0 ? totalCount : 1;
+            }
+            else
+            {
+                users = await executionQuery
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
 
             var mappedUsers = _mapper.Map<List<UserDetailsResponseDto>>(users);
 
@@ -59,7 +70,7 @@ namespace CapstoneProjectAPI.Services
                 TotalCount = totalCount
             };
         }
-        public async Task<List<UserDetailsResponseDto>> GetPotentialManagers(int userId)
+        public async Task<List<UserDetailsResponseDto>> GetPotentialManagers(int userId, string search = "")
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
@@ -68,16 +79,26 @@ namespace CapstoneProjectAPI.Services
                 throw new EntityNotFoundException("User not found");
             }
 
-            var potentialManagers = await _context.Users
-                .Include(u => u.Department)
-                .Include(u => u.Manager)
-                .Where(u => u.DepartmentId == user.DepartmentId
-                         && u.Level > user.Level
-                         && u.IsActive
-                         && u.Id != userId)
+            var query = _context.Users
+        .Include(u => u.Department)
+        .Include(u => u.Manager)
+        .Where(u => u.DepartmentId == user.DepartmentId
+                 && u.Level > user.Level
+                 && u.IsActive
+                 && u.Id != userId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string lowerSearch = search.ToLower();
+
+                query = query.Where(u => u.Name.ToLower().Contains(lowerSearch) ||
+                                         u.Email.ToLower().Contains(lowerSearch) ||
+                                         u.Department.Name.ToLower().Contains(lowerSearch));
+            }
+
+            var potentialManagers = await query
                 .OrderByDescending(u => u.Level)
                 .ToListAsync();
-
             _logger.LogInformation(
                 "Found {Count} potential manager(s) for user {UserId} in department {DeptId} with level > {Level}.",
                 potentialManagers.Count, userId, user.DepartmentId, user.Level);

@@ -1,11 +1,25 @@
 <div class="users-root">
   <!-- Toolbar -->
-  <div class="users-toolbar">
+  <div class="users-toolbar" style="display: flex; justify-content: space-between; align-items: center;">
     <div class="toolbar-left">
       <h2 class="section-heading">Portal Users</h2>
       <span class="users-count" id="users-total-badge">
         {{ usersResponse().totalCount }} {{ usersResponse().totalCount === 1 ? 'user' : 'users' }}
       </span>
+    </div>
+    <div class="toolbar-right">
+      <div class="manager-search-wrapper" style="width: 300px; margin-bottom: 0;">
+        <div class="manager-input-row">
+          <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="main-search-input" class="manager-search-input" type="text"
+            placeholder="Search users by name or email..." [ngModel]="mainSearchQuery()"
+            (ngModelChange)="onMainSearchInput($event)" autocomplete="off" />
+        </div>
+      </div>
     </div>
   </div>
 
@@ -224,15 +238,15 @@
                   </svg>
                   <input id="manager-search-input" class="manager-search-input" type="text"
                     placeholder="Search by name or email..." [ngModel]="managerSearchQuery()"
-                    (ngModelChange)="managerSearchQuery.set($event); onManagerSearchInput()"
+                    (ngModelChange)="onManagerSearchInput($event)"
                     (blur)="isManagerDropdownOpen.set(false)" autocomplete="off" />
                   @if (isManagersLoading()) {
                   <span class="manager-loading-dot"></span>
                   }
                 </div>
-                @if (isManagerDropdownOpen() && filteredManagers().length > 0) {
+                @if (isManagerDropdownOpen() && potentialManagers().length > 0) {
                 <ul class="manager-suggestions" (mousedown)="$event.preventDefault()">
-                  @for (m of filteredManagers(); track m.id) {
+                  @for (m of potentialManagers(); track m.id) {
                   <li class="manager-suggestion-item" (click)="selectManager(m)">
                     <span class="suggestion-name">{{ m.name }}</span>
                     <span class="suggestion-email">{{ m.email }}</span>
@@ -240,7 +254,7 @@
                   }
                 </ul>
                 } @else if (isManagerDropdownOpen() && managerSearchQuery().trim().length > 0 &&
-                filteredManagers().length === 0 && !isManagersLoading()) {
+                potentialManagers().length === 0 && !isManagersLoading()) {
                 <div class="manager-no-results">No matching managers found</div>
                 }
               </div>
@@ -310,18 +324,40 @@
                     <span>All pending documents have been successfully reassigned.</span>
                   </div>
                   } @else {
-                  <label for="reassign-to-select" class="reject-label">Select User to Reassign To <span
+                  <label for="reassign-search-input" class="reject-label">Select User to Reassign To <span
                       class="required-star">*</span></label>
-                  <select id="reassign-to-select" class="reject-textarea"
-                    (change)="reassignToUserId.set(+$any($event.target).value); reassignError.set(null)"
-                    [disabled]="isReassigning()">
-                    <option value="null" disabled selected>Select user...</option>
-                    @for (u of allUsersList(); track u.id) {
-                    @if (u.id !== selectedUser()?.id) {
-                    <option [value]="u.id">{{ u.name }} ({{ u.email }})</option>
+                  <div class="manager-search-wrapper" style="margin-bottom: 1rem;">
+                    <div class="manager-input-row" [class.disabled]="isReassigning()">
+                      <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input id="reassign-search-input" class="manager-search-input" type="text"
+                        placeholder="Search by name or email..." [ngModel]="reassignSearchQuery()"
+                        (ngModelChange)="onReassignSearchInput($event)"
+                        (blur)="isReassignDropdownOpen.set(false)" autocomplete="off"
+                        [disabled]="isReassigning()" />
+                      @if (isReassignSearchLoading()) {
+                      <span class="manager-loading-dot"></span>
+                      }
+                    </div>
+                    @if (isReassignDropdownOpen() && allUsersList().length > 0) {
+                    <ul class="manager-suggestions" (mousedown)="$event.preventDefault()">
+                      @for (u of allUsersList(); track u.id) {
+                        @if (u.id !== selectedUser()?.id) {
+                        <li class="manager-suggestion-item" (click)="selectReassignUser(u)">
+                          <span class="suggestion-name">{{ u.name }}</span>
+                          <span class="suggestion-email">{{ u.email }}</span>
+                        </li>
+                        }
+                      }
+                    </ul>
+                    } @else if (isReassignDropdownOpen() && reassignSearchQuery().trim().length > 0 &&
+                    allUsersList().length === 0 && !isReassignSearchLoading()) {
+                    <div class="manager-no-results">No matching users found</div>
                     }
-                    }
-                  </select>
+                  </div>
                   @if (reassignError()) {
                   <span class="reject-error">{{ reassignError() }}</span>
                   }
