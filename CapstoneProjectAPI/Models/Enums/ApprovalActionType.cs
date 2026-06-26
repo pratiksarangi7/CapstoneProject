@@ -4,6 +4,7 @@ namespace CapstoneProjectAPI.Models.Enums
     {
         Approved,
         Rejected,
-        Forwarded
+        Forwarded,
+        Transfered
     }
 }

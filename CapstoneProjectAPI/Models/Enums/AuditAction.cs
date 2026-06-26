@@ -8,6 +8,7 @@ namespace CapstoneProjectAPI.Models.Enums
         NewVersionUploaded,
         DocumentApproved,
         DocumentRejected,
+        DocumentTransfered,
         DocumentDownloaded,
         DocumentForwarded,
         DocumentWithdrawn,

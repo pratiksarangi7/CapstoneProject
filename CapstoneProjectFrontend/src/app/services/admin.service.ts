@@ -47,10 +47,10 @@ export class AdminService {
         const url = `${baseUrl}/admin/change-manager`;
         return this.http.put(url, changeManagerRequestDto);
     }
-    public getPotentialManagers(userId: number, search: string=""): Observable<UserDetails[]> {
+    public getPotentialManagers(userId: number, search: string = ""): Observable<UserDetails[]> {
         const url = `${baseUrl}/admin/users/${userId}/potential-managers`;
-        const params=new HttpParams().set("search", search);
-        return this.http.get<UserDetails[]>(url, {params});
+        const params = new HttpParams().set("search", search);
+        return this.http.get<UserDetails[]>(url, { params });
     }
     public getDepartments(): Observable<DepartmentResponseDto[]> {
         const url = `${baseUrl}/Admin/departments`;
@@ -60,10 +60,11 @@ export class AdminService {
         const url = `${baseUrl}/admin/department`;
         return this.http.post(url, body);
     }
-    public getAllDocuments(pageNumber: number = 1, pageSize: number = 10): Observable<PaginatedResponse<UserDocumentResponseDto[]>> {
-        const params = new HttpParams();
-        params.set("pageNumber", pageNumber);
-        params.set("pageSize", pageSize);
+    public getAllDocuments(pageNumber: number = 1, pageSize: number = 10, search: string = ""): Observable<PaginatedResponse<UserDocumentResponseDto[]>> {
+        const params = new HttpParams()
+            .set("pageNumber", pageNumber)
+            .set("pageSize", pageSize)
+            .set("search", search);
         const url = `${baseUrl}/admin/documents/all`;
         return this.http.get<PaginatedResponse<UserDocumentResponseDto[]>>(url, { params });
     }

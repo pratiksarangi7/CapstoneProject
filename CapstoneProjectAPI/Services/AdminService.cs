@@ -237,26 +237,53 @@ namespace CapstoneProjectAPI.Services
             _logger.LogInformation("Successfully created new department '{Name}' with ID {DeptId}.", department.Name, department.Id);
             return department;
         }
-        public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(int pageNumber = 1, int pageSize = 10)
+        public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(int pageNumber = 1, int pageSize = 10, string search = "")
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
             var query = _context.Documents
-                        .Include(d => d.TargetDepartment)
-                        .Include(d => d.CreatedByUser)
-                        .Include(d => d.CurrentApprover)
-                        .ThenInclude(u => u!.Department)
-                        .Include(d => d.Versions)
-                        .ThenInclude(v => v.UploadedByUser)
-                        .Include(d => d.Versions)
-                        .ThenInclude(v => v.ApprovalActions)
+                .Include(d => d.TargetDepartment)
+                .Include(d => d.CreatedByUser)
+                .Include(d => d.CurrentApprover)
+                    .ThenInclude(u => u!.Department)
+                .Include(d => d.Versions)
+                    .ThenInclude(v => v.UploadedByUser)
+                .Include(d => d.Versions)
+                    .ThenInclude(v => v.ApprovalActions)
                         .ThenInclude(aa => aa.ApproverUser)
-                        .OrderByDescending(d => d.CreatedAt);
+                .AsQueryable(); 
+
+            bool isSearching = !string.IsNullOrWhiteSpace(search);
+            if (isSearching)
+            {
+                string lowerSearch = search.ToLower();
+
+                query = query.Where(d => d.Title.ToLower().Contains(lowerSearch) ||
+                                         d.CreatedByUser.Name.ToLower().Contains(lowerSearch) ||
+                                         d.TargetDepartment.Name.ToLower().Contains(lowerSearch));
+            }
+
+            query = query.OrderByDescending(d => d.CreatedAt);
+
             int totalCount = await query.CountAsync();
-            var documents = await query.Skip((pageNumber - 1) * pageSize)
-                                .Take(pageSize)
-                                .ToListAsync();
+
+            List<Document> documents;
+
+            if (isSearching)
+            {
+                documents = await query.ToListAsync();
+                pageSize = totalCount > 0 ? totalCount : 1; 
+                pageNumber = 1;
+            }
+            else
+            {
+                documents = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+
             return new PagedResult<UserDocumentResponseDto>()
             {
                 Items = documents.Select(DocumentService.MapUserDocument).ToList(),

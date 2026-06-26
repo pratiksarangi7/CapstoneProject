@@ -28,7 +28,7 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("users/{id:int}/potential-managers")]
-        public async Task<IActionResult> GetPotentialManagers(int id, string search="")
+        public async Task<IActionResult> GetPotentialManagers(int id, string search = "")
         {
             var managers = await _adminService.GetPotentialManagers(id, search);
             return Ok(managers);
@@ -75,9 +75,9 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("documents/all")]
-        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, int pageSize = 10)
+        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, int pageSize = 10, string search = "")
         {
-            var documents = await _adminService.GetAllDocuments(pageNumber, pageSize);
+            var documents = await _adminService.GetAllDocuments(pageNumber, pageSize, search);
             return Ok(documents);
         }
 

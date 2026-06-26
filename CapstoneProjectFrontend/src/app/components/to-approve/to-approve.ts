@@ -213,10 +213,10 @@ export class ToApprove implements OnInit, OnDestroy {
     const docId = this.selectedDocument()!.id;
 
     if (actionType === 'Approve Completely') {
-      const requestDto: ApproveDocumentRequestDto = { approveDocumentAction: ApproveDocumentAction.ApproveEntirely };
+      const requestDto: ApproveDocumentRequestDto = { action: ApproveDocumentAction.ApproveEntirely };
       this.callApproveApi(docId, requestDto, actionType);
     } else if (actionType === 'Approve & Forward') {
-      const requestDto: ApproveDocumentRequestDto = { approveDocumentAction: ApproveDocumentAction.ApproveAndForward };
+      const requestDto: ApproveDocumentRequestDto = { action: ApproveDocumentAction.ApproveAndForward };
       this.callApproveApi(docId, requestDto, actionType);
     } else if (actionType === 'Reject') {
       if (!this.actionComments.trim()) {
@@ -247,7 +247,7 @@ export class ToApprove implements OnInit, OnDestroy {
 
     if (actionType === 'Approve & Transfer') {
       const requestDto: ApproveDocumentRequestDto = {
-        approveDocumentAction: ApproveDocumentAction.ApproveAndTransfer,
+        action: ApproveDocumentAction.ApproveAndTransfer,
         targetUserId
       };
       this.callApproveApi(docId, requestDto, 'Approve & Transfer');

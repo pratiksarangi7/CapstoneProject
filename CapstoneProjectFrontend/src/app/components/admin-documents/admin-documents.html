@@ -1,11 +1,10 @@
 <div class="admin-docs-root">
 
-  <!-- ── Toolbar ───────────────────────────────────────────────────────────────── -->
-  <div class="docs-toolbar">
-    <div class="toolbar-left">
+  <div class="docs-toolbar" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="toolbar-left" style="display: flex; align-items: center; gap: 1rem;">
       <div class="section-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
           <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -23,9 +22,23 @@
       </span>
       }
     </div>
+    <div class="toolbar-right">
+      <div class="manager-search-wrapper" style="width: 300px; margin-bottom: 0;">
+        <div class="manager-input-row" style="position: relative; display: flex; align-items: center;">
+          <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            style="position: absolute; left: 12px; width: 16px; height: 16px; color: #64748b;">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="docs-search-input" class="manager-search-input" type="text" placeholder="Search documents..."
+            [ngModel]="mainSearchQuery()" (ngModelChange)="onSearchInput($event)" autocomplete="off"
+            style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; outline: none; transition: border-color 0.2s;" />
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- ── Loading ───────────────────────────────────────────────────────────────── -->
   @if (isLoading()) {
   <div class="loading-overlay" id="docs-loading-spinner">
     <div class="spinner"></div>
@@ -33,7 +46,6 @@
   </div>
   } @else {
 
-  <!-- ── Empty State ────────────────────────────────────────────────────────────── -->
   @if (docsResponse().items.length === 0) {
   <div class="empty-state" id="docs-empty-view">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
@@ -45,14 +57,11 @@
   </div>
   } @else {
 
-  <!-- ── Accordion Document List ────────────────────────────────────────────────── -->
   <div class="accordion-list" id="admin-docs-accordion">
     @for (doc of docsResponse().items; track doc.id; let idx = $index) {
     <div class="accordion-item" [class.accordion-item--open]="isExpanded(doc.id)" id="doc-item-{{ doc.id }}">
 
-      <!-- ── Accordion Header (always visible) ─────────────────────────────── -->
-      <button class="accordion-header" (click)="toggleExpand(doc.id)"
-        [attr.aria-expanded]="isExpanded(doc.id)"
+      <button class="accordion-header" (click)="toggleExpand(doc.id)" [attr.aria-expanded]="isExpanded(doc.id)"
         [attr.aria-controls]="'doc-panel-' + doc.id">
 
         <div class="header-left">
@@ -82,7 +91,8 @@
                 </svg>
                 {{ doc.targetDepartmentName }}
               </span>
-              <span class="meta-versions">{{ doc.versions.length }} version{{ doc.versions.length === 1 ? '' : 's' }}</span>
+              <span class="meta-versions">{{ doc.versions.length }} version{{ doc.versions.length === 1 ? '' : 's'
+                }}</span>
             </div>
           </div>
         </div>
@@ -99,11 +109,9 @@
         </div>
       </button>
 
-      <!-- ── Accordion Panel (expanded detail) ─────────────────────────────── -->
       <div class="accordion-panel" [id]="'doc-panel-' + doc.id">
         <div class="panel-inner slide-down">
 
-          <!-- Meta Grid -->
           <div class="detail-meta-grid">
             <div class="meta-card">
               <span class="meta-label">Document ID</span>
@@ -139,7 +147,6 @@
             </div>
           </div>
 
-          <!-- Version History -->
           <div class="versions-section">
             <h4 class="versions-heading">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -157,10 +164,8 @@
             } @else {
             <div class="versions-list">
               @for (ver of doc.versions; track ver.id) {
-              <div class="version-card" [class.version-card--current]="ver.isCurrentVersion"
-                id="version-{{ ver.id }}">
+              <div class="version-card" [class.version-card--current]="ver.isCurrentVersion" id="version-{{ ver.id }}">
 
-                <!-- Version header -->
                 <div class="version-header">
                   <div class="version-badge-row">
                     <span class="version-num">v{{ ver.versionNumber }}</span>
@@ -179,7 +184,6 @@
                   </button>
                 </div>
 
-                <!-- Version meta -->
                 <div class="version-meta">
                   <div class="vmeta-item">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -259,10 +263,9 @@
     }
   </div>
 
-  <!-- ── Pagination ─────────────────────────────────────────────────────────────── -->
   <div class="pagination-bar">
-    <button class="page-btn page-nav" [disabled]="!docsResponse().hasPreviousPage"
-      (click)="goToPage(currentPage() - 1)" aria-label="Previous page">
+    <button class="page-btn page-nav" [disabled]="!docsResponse().hasPreviousPage" (click)="goToPage(currentPage() - 1)"
+      aria-label="Previous page">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
         stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 18 9 12 15 6"></polyline>
@@ -275,8 +278,8 @@
     </button>
     }
 
-    <button class="page-btn page-nav" [disabled]="!docsResponse().hasNextPage"
-      (click)="goToPage(currentPage() + 1)" aria-label="Next page">
+    <button class="page-btn page-nav" [disabled]="!docsResponse().hasNextPage" (click)="goToPage(currentPage() + 1)"
+      aria-label="Next page">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
         stroke-linecap="round" stroke-linejoin="round">
         <polyline points="9 18 15 12 9 6"></polyline>
@@ -292,7 +295,6 @@
   }
   }
 
-  <!-- ── Document Preview Modal ─────────────────────────────────────────────────── -->
   @if (isModalOpen()) {
   <div class="modal-overlay" (click)="closeModal()" id="doc-preview-modal">
     <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true"
@@ -316,8 +318,8 @@
         </div>
         } @else if (modalError()) {
         <div class="modal-error-alert">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -347,9 +349,10 @@
 
       <div class="modal-footer">
         @if (!isModalLoading() && !modalError() && modalFileUrl()) {
-        <a [href]="modalFileUrl()" target="_blank" class="btn-footer-secondary" id="btn-open-tab" aria-label="Open in new tab">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <a [href]="modalFileUrl()" target="_blank" class="btn-footer-secondary" id="btn-open-tab"
+          aria-label="Open in new tab">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
             <polyline points="15 3 21 3 21 9"></polyline>
             <line x1="10" y1="14" x2="21" y2="3"></line>

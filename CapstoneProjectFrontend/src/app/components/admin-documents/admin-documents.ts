@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../services/admin.service';
 import { UserDocumentResponseDto } from '../../dtos/user-document.response.dto';
 import { DocumentVersionResponseDto } from '../../dtos/document-version.response.dto';
@@ -8,16 +9,16 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-admin-documents',
-  imports: [],
+  imports: [FormsModule],
   templateUrl: './admin-documents.html',
   styleUrl: './admin-documents.css',
 })
 export class AdminDocuments implements OnInit, OnDestroy {
-  // ── Pagination ────────────────────────────────────────────────────────────────
   currentPage = signal(1);
   pageSize = signal(10);
+  mainSearchQuery = signal('');
+  private searchTimeout: any;
 
-  // ── Data ──────────────────────────────────────────────────────────────────────
   docsResponse = signal<PaginatedResponse<UserDocumentResponseDto>>({
     items: [],
     pageNumber: 1,
@@ -30,11 +31,8 @@ export class AdminDocuments implements OnInit, OnDestroy {
 
   isLoading = signal(false);
 
-  // ── Accordion ─────────────────────────────────────────────────────────────────
-  // Stores ids of ALL expanded docs (multi-open accordion)
   expandedDocIds = signal<Set<number>>(new Set());
 
-  // ── Document preview modal ────────────────────────────────────────────────────
   isModalOpen = signal(false);
   isModalLoading = signal(false);
   modalFileUrl = signal<SafeResourceUrl | null>(null);
@@ -47,19 +45,17 @@ export class AdminDocuments implements OnInit, OnDestroy {
     private adminService: AdminService,
     private documentService: DocumentService,
     private sanitizer: DomSanitizer
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loadPage();
   }
 
-  // ── Load page ─────────────────────────────────────────────────────────────────
   loadPage(): void {
     this.isLoading.set(true);
     this.expandedDocIds.set(new Set());
-    this.adminService.getAllDocuments(this.currentPage(), this.pageSize()).subscribe({
+    this.adminService.getAllDocuments(this.currentPage(), this.pageSize(), this.mainSearchQuery()).subscribe({
       next: (data) => {
-        // Backend wraps items in a nested array for this endpoint
         const normalized: PaginatedResponse<UserDocumentResponseDto> = {
           ...data,
           items: Array.isArray(data.items[0]) ? (data.items as any).flat() : data.items,
@@ -74,7 +70,17 @@ export class AdminDocuments implements OnInit, OnDestroy {
     });
   }
 
-  // ── Pagination ────────────────────────────────────────────────────────────────
+  onSearchInput(query: string): void {
+    this.mainSearchQuery.set(query);
+    this.currentPage.set(1);
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.loadPage();
+    }, 500);
+  }
+
   goToPage(page: number): void {
     const total = this.docsResponse().totalPages;
     if (page < 1 || page > total) return;
@@ -93,7 +99,6 @@ export class AdminDocuments implements OnInit, OnDestroy {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }
 
-  // ── Accordion ─────────────────────────────────────────────────────────────────
   toggleExpand(docId: number): void {
     const current = new Set(this.expandedDocIds());
     if (current.has(docId)) {
@@ -108,7 +113,6 @@ export class AdminDocuments implements OnInit, OnDestroy {
     return this.expandedDocIds().has(docId);
   }
 
-  // ── Document preview ──────────────────────────────────────────────────────────
   viewDocument(documentId: number, version: DocumentVersionResponseDto): void {
     this.modalFileName.set(version.originalFileName);
     this.isModalLoading.set(true);
@@ -158,7 +162,6 @@ export class AdminDocuments implements OnInit, OnDestroy {
     this.cleanupObjectURL();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────────
   formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleString('en-IN', {
       day: '2-digit',
@@ -194,7 +197,7 @@ export class AdminDocuments implements OnInit, OnDestroy {
     switch (action) {
       case 'Approved': return 'action-approved';
       case 'Rejected': return 'action-rejected';
-      case 'Forwarded': return 'action-forwarded';
+      case 'ForwardedToDepartment': return 'action-forwarded';
       default: return '';
     }
   }
