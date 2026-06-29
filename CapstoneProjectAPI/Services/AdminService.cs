@@ -237,7 +237,11 @@ namespace CapstoneProjectAPI.Services
             _logger.LogInformation("Successfully created new department '{Name}' with ID {DeptId}.", department.Name, department.Id);
             return department;
         }
-        public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(int pageNumber = 1, int pageSize = 10, string search = "")
+        public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(
+            int pageNumber = 1,
+            int pageSize = 10,
+            string search = "",
+            DocumentStatus? status = null)
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
@@ -252,7 +256,13 @@ namespace CapstoneProjectAPI.Services
                 .Include(d => d.Versions)
                     .ThenInclude(v => v.ApprovalActions)
                         .ThenInclude(aa => aa.ApproverUser)
-                .AsQueryable(); 
+                .AsSplitQuery()
+                .AsQueryable();
+
+            if (status.HasValue)
+            {
+                query = query.Where(d => d.DocumentStatus == status.Value);
+            }
 
             bool isSearching = !string.IsNullOrWhiteSpace(search);
             if (isSearching)
@@ -268,21 +278,10 @@ namespace CapstoneProjectAPI.Services
 
             int totalCount = await query.CountAsync();
 
-            List<Document> documents;
-
-            if (isSearching)
-            {
-                documents = await query.ToListAsync();
-                pageSize = totalCount > 0 ? totalCount : 1; 
-                pageNumber = 1;
-            }
-            else
-            {
-                documents = await query
-                    .Skip((pageNumber - 1) * pageSize)
-                    .Take(pageSize)
-                    .ToListAsync();
-            }
+            var documents = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
             return new PagedResult<UserDocumentResponseDto>()
             {
@@ -420,7 +419,7 @@ namespace CapstoneProjectAPI.Services
                 _logger.LogWarning("Deactivate user failed: User {UserId} has {Count} pending document(s) to approve.", userId, pendingAsApprover);
                 throw new InvalidOperationException(
                     $"User cannot be deactivated: they are the current approver for {pendingAsApprover} pending document(s). " +
-                    "Use PUT /api/admin/reassign-documents to reassign them first.");
+                    "Reassign the documents to some other user first.");
             }
 
             int pendingAsUploader = await _context.Documents

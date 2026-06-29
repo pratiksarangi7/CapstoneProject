@@ -12,6 +12,7 @@ import { UserDocumentResponseDto } from "../dtos/user-document.response.dto";
 import { PaginatedResponse } from "../helpers";
 import { ReassignDocumentsRequestDto } from "../dtos/reassign-documents.request.dto";
 import { RejectAllDocs } from "../dtos/reject-all-docs.request.dto";
+import { DocumentStatus } from "../enums/document-status-filter.enum";
 
 @Injectable({
     providedIn: "root"
@@ -60,11 +61,14 @@ export class AdminService {
         const url = `${baseUrl}/admin/department`;
         return this.http.post(url, body);
     }
-    public getAllDocuments(pageNumber: number = 1, pageSize: number = 10, search: string = ""): Observable<PaginatedResponse<UserDocumentResponseDto[]>> {
-        const params = new HttpParams()
+    public getAllDocuments(pageNumber: number = 1, pageSize: number = 10, search: string = "", documentStatus?: DocumentStatus): Observable<PaginatedResponse<UserDocumentResponseDto[]>> {
+        let params = new HttpParams()
             .set("pageNumber", pageNumber)
             .set("pageSize", pageSize)
-            .set("search", search);
+            .set("search", search)
+        if (documentStatus != undefined) {
+            params = params.set("documentStatus", documentStatus);
+        }
         const url = `${baseUrl}/admin/documents/all`;
         return this.http.get<PaginatedResponse<UserDocumentResponseDto[]>>(url, { params });
     }

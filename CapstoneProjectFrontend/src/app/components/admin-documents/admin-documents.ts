@@ -6,6 +6,7 @@ import { DocumentVersionResponseDto } from '../../dtos/document-version.response
 import { PaginatedResponse } from '../../helpers';
 import { DocumentService } from '../../services/document.service';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DocumentStatus } from '../../enums/document-status-filter.enum';
 
 @Component({
   selector: 'app-admin-documents',
@@ -17,6 +18,7 @@ export class AdminDocuments implements OnInit, OnDestroy {
   currentPage = signal(1);
   pageSize = signal(10);
   mainSearchQuery = signal('');
+  statusFilter = signal<DocumentStatus | undefined>(undefined);
   private searchTimeout: any;
 
   docsResponse = signal<PaginatedResponse<UserDocumentResponseDto>>({
@@ -54,7 +56,7 @@ export class AdminDocuments implements OnInit, OnDestroy {
   loadPage(): void {
     this.isLoading.set(true);
     this.expandedDocIds.set(new Set());
-    this.adminService.getAllDocuments(this.currentPage(), this.pageSize(), this.mainSearchQuery()).subscribe({
+    this.adminService.getAllDocuments(this.currentPage(), this.pageSize(), this.mainSearchQuery(), this.statusFilter()).subscribe({
       next: (data) => {
         const normalized: PaginatedResponse<UserDocumentResponseDto> = {
           ...data,
@@ -79,6 +81,13 @@ export class AdminDocuments implements OnInit, OnDestroy {
     this.searchTimeout = setTimeout(() => {
       this.loadPage();
     }, 500);
+  }
+
+  onStatusChange(status: string): void {
+    const newStatus = status === 'ALL' || !status ? undefined : status as DocumentStatus;
+    this.statusFilter.set(newStatus);
+    this.currentPage.set(1);
+    this.loadPage();
   }
 
   goToPage(page: number): void {

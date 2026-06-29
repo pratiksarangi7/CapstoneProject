@@ -4,6 +4,7 @@ using CapstoneProjectAPI.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using CapstoneProjectAPI.Models.Enums;
 
 namespace CapstoneProjectAPI.Controllers
 {
@@ -75,9 +76,9 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("documents/all")]
-        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, int pageSize = 10, string search = "")
+        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, int pageSize = 10, string search = "", DocumentStatus? documentStatus=null)
         {
-            var documents = await _adminService.GetAllDocuments(pageNumber, pageSize, search);
+            var documents = await _adminService.GetAllDocuments(pageNumber, pageSize, search, documentStatus);
             return Ok(documents);
         }
 

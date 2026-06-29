@@ -58,7 +58,6 @@ export class UploadDoc implements OnInit {
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
 
-      // Validate file size (max 5 MB)
       const maxSize = 5 * 1024 * 1024;
       if (file.size > maxSize) {
         this.fileError.set("File size exceeds 5 MB limit.");
@@ -66,7 +65,6 @@ export class UploadDoc implements OnInit {
         return;
       }
 
-      // Validate file type (image or pdf)
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
         this.fileError.set("Only PDF and image files (PNG, JPG, GIF, WEBP) are allowed.");
@@ -74,7 +72,6 @@ export class UploadDoc implements OnInit {
         return;
       }
 
-      // Valid file
       this.fileError.set(null);
       this.uploadModel.update(m => ({ ...m, file: file }));
     } else {
@@ -110,8 +107,7 @@ export class UploadDoc implements OnInit {
         this.close.emit();
       },
       error: (error) => {
-        console.error("Upload failed", error);
-        alert("Upload failed. Please try again.");
+        alert(`Upload failed. ${error.error.message}`);
         this.progress.set(false);
       }
     });

@@ -394,9 +394,8 @@ export class AdminUsers implements OnInit {
         this.isLoading.set(false);
       },
       error: (err) => {
-        console.error('Failed to deactivate user', err);
         this.isLoading.set(false);
-        alert('An error occurred while deactivating the user. Please try again.');
+        alert(`${err.error.message}`);
       }
     });
   }

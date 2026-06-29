@@ -110,7 +110,7 @@ namespace CapstoneProjectAPI.Services
             string token = GenerateJwtToken(user);
             _context.AuditLogs.Add(new AuditLog()
             {
-                Action = AuditAction.UserRegistered,
+                Action = AuditAction.UserLoggedIn,
                 CreatedAt = DateTimeOffset.UtcNow,
                 PerformedByUserId = user.Id,
                 Details = $"User logged in. Email: {user.Email}",

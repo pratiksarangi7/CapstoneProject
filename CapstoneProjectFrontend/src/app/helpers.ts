@@ -8,11 +8,29 @@ export interface PaginatedResponse<T> {
     hasNextPage: boolean;
 }
 
-export const isLoggedIn = () => {
+export const isTokenExpired = (token: string): boolean => {
+    try {
+        const tokenPayload = token.split('.')[1];
+        const userClaims = JSON.parse(atob(tokenPayload));
+        if (!userClaims || !userClaims.exp) {
+            return false;
+        }
+        const expiryTime = userClaims.exp * 1000;
+        return Date.now() > expiryTime;
+    } catch (error) {
+        console.error("Invalid token format", error);
+        return true;
+    }
+};
+
+export const isLoggedIn = (): boolean => {
     const token = localStorage.getItem("token");
-    return token ? true : false;
+    if (!token) return false;
+    return !isTokenExpired(token);
 }
-export const isAdmin = () => {
+
+export const isAdmin = (): boolean => {
+    if (!isLoggedIn()) return false;
     const token = localStorage.getItem("token");
     if (!token) return false;
     try {
@@ -27,4 +45,5 @@ export const isAdmin = () => {
         return false;
     }
 }
+
 

@@ -154,6 +154,15 @@ namespace CapstoneProjectAPI.Services
 
             _context.DocumentVersions.Add(documentVersion);
             await _context.SaveChangesAsync();
+            _context.AuditLogs.Add(new AuditLog()
+            {
+                PerformedByUserId = uploaderUserId,
+                Action = AuditAction.DocumentUploaded,
+                DocumentId = document.Id,
+                DocumentVersionId = documentVersion.Id,
+                Details = $"User #{uploader.Id} uploaded new document to department #{request.TargetDepartmentId}"
+            });
+            await _context.SaveChangesAsync();
 
             string? approverName = null;
             if (approverUserId.HasValue)
@@ -209,7 +218,6 @@ namespace CapstoneProjectAPI.Services
                     $"Document cannot be withdrawn because its status is '{document.DocumentStatus}'. " +
                     "Only documents with status 'PendingApproval' can be withdrawn.");
             }
-
 
             string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
             foreach (var version in document.Versions)
@@ -753,7 +761,7 @@ namespace CapstoneProjectAPI.Services
                             DocumentId = document.Id,
                             DocumentVersionId = currentVersion.Id,
                             ApproverUserId = approverUserId,
-                            Action = ApprovalActionType.Forwarded,
+                            Action = ApprovalActionType.Transfered,
                             ForwardedToDepartmentId = targetUser.DepartmentId,
                             Comments = request.Comments,
                             CreatedAt = actedAt

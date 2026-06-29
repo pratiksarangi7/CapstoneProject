@@ -22,7 +22,19 @@
       </span>
       }
     </div>
-    <div class="toolbar-right">
+    <div class="toolbar-right" style="display: flex; gap: 1rem; align-items: center;">
+      <div class="status-filter-wrapper">
+        <select class="status-filter-select" 
+                [ngModel]="statusFilter() || 'ALL'" 
+                (ngModelChange)="onStatusChange($event)"
+                style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; outline: none; background-color: white; color: #334155; min-width: 150px; cursor: pointer; transition: border-color 0.2s;">
+          <option value="ALL">All Statuses</option>
+          <option value="PendingApproval">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+          <option value="DocumentWithdrawn">Withdrawn</option>
+        </select>
+      </div>
       <div class="manager-search-wrapper" style="width: 300px; margin-bottom: 0;">
         <div class="manager-input-row" style="position: relative; display: flex; align-items: center;">
           <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
