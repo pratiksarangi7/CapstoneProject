@@ -206,7 +206,7 @@ namespace CapstoneProjectTest
             var auditLog = await _context.AuditLogs.FirstOrDefaultAsync(al => 
                 al.PerformedByUserId == result.UserId && al.Details != null && al.Details.Contains("User logged in"));
             Assert.That(auditLog, Is.Not.Null);
-            Assert.That(auditLog.Action.ToString(), Is.EqualTo("UserRegistered"));
+            Assert.That(auditLog.Action.ToString(), Is.EqualTo("UserLoggedIn"));
         }
         #endregion
         [Test]

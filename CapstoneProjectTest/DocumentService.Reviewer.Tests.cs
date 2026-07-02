@@ -345,7 +345,7 @@ namespace CapstoneProjectTest
 
             var action = await _context.ApprovalActions.FirstOrDefaultAsync(aa => aa.DocumentId == document.Id);
             Assert.That(action, Is.Not.Null);
-            Assert.That(action!.Action, Is.EqualTo(ApprovalActionType.Forwarded));
+            Assert.That(action!.Action, Is.EqualTo(ApprovalActionType.Transfered));
             Assert.That(action.ForwardedToDepartmentId, Is.EqualTo(deptB.Id));
 
             var auditLog = await _context.AuditLogs.FirstOrDefaultAsync(al => al.DocumentId == document.Id && al.Action == AuditAction.DocumentForwarded);

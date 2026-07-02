@@ -38,13 +38,15 @@ export class Login {
       next: (response: any) => {
         console.log("Login successful", response);
         localStorage.setItem('token', response.token);
+        localStorage.setItem('name', response.name);
+        this.authService.updateUserName(response.name);
         this.progress.set(false);
         if (isAdmin()) this.router.navigate(['/admin-dashboard']);
         else this.router.navigate(['/user-dashboard'])
       },
       error: (error) => {
         console.error("Login failed", error);
-        alert("Login failed. Please try again.");
+        alert(`${error.error.message}`);
         this.progress.set(false);
       }
 

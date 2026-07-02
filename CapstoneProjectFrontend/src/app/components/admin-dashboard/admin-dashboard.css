@@ -185,8 +185,9 @@
   background-color: var(--card-bg);
   border-bottom: 1px solid var(--card-border);
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   flex-shrink: 0;
 }
 

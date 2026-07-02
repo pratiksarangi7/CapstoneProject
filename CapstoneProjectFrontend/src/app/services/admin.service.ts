@@ -13,6 +13,8 @@ import { PaginatedResponse } from "../helpers";
 import { ReassignDocumentsRequestDto } from "../dtos/reassign-documents.request.dto";
 import { RejectAllDocs } from "../dtos/reject-all-docs.request.dto";
 import { DocumentStatus } from "../enums/document-status-filter.enum";
+import { AddUserRequestDto } from "../dtos/add-user.request.dto";
+import { BulkUploadResponseDto } from "../dtos/bulk-upload.response.dto";
 
 @Injectable({
     providedIn: "root"
@@ -79,5 +81,15 @@ export class AdminService {
     public rejectAllDocs(userId: number, body: RejectAllDocs) {
         const url = `${baseUrl}/admin/users/${userId}/reject-pending-documents`;
         return this.http.put(url, body);
+    }
+    public addUser(body: AddUserRequestDto) {
+        const url = `${baseUrl}/admin/add-user`;
+        return this.http.post(url, body);
+    }
+    public bulkAddUsers(file: File): Observable<BulkUploadResponseDto> {
+        const url = `${baseUrl}/admin/users/bulk-upload`;
+        const formData = new FormData();
+        formData.append('file', file);
+        return this.http.post<BulkUploadResponseDto>(url, formData);
     }
 }

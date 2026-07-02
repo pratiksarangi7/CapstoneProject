@@ -6,6 +6,8 @@ import { UserDetailsResponseDto, UserDetails } from '../../dtos/user-details-res
 import { Department } from '../../models/department.model';
 import { RejectAllDocs } from '../../dtos/reject-all-docs.request.dto';
 import { ReassignDocumentsRequestDto } from '../../dtos/reassign-documents.request.dto';
+import { AddUserRequestDto } from '../../dtos/add-user.request.dto';
+import { BulkUploadResponseDto } from '../../dtos/bulk-upload.response.dto';
 
 @Component({
   selector: 'app-admin-users',
@@ -58,6 +60,16 @@ export class AdminUsers implements OnInit {
   isReassignSearchLoading = signal(false);
   reassignSearchQuery = signal('');
   private reassignSearchTimeout: any;
+
+  isAddUserModalOpen = signal(false);
+  newUser = signal<AddUserRequestDto>({ name: '', email: '', password: '', departmentId: 0 });
+  isAddingUser = signal(false);
+  addUserError = signal<string | null>(null);
+  addUserSuccess = signal(false);
+
+  isBulkUploading = signal(false);
+  bulkUploadResult = signal<BulkUploadResponseDto | null>(null);
+  isBulkResultModalOpen = signal(false);
 
   constructor(
     private adminService: AdminService,
@@ -435,6 +447,87 @@ export class AdminUsers implements OnInit {
     if (user && select.value) {
       this.changeLevel(user.id, parseInt(select.value, 10));
     }
+  }
+
+  openAddUserModal(): void {
+    this.newUser.set({ name: '', email: '', password: '', departmentId: 0 });
+    this.addUserError.set(null);
+    this.addUserSuccess.set(false);
+    this.isAddUserModalOpen.set(true);
+  }
+
+  closeAddUserModal(): void {
+    this.isAddUserModalOpen.set(false);
+    this.addUserError.set(null);
+    this.addUserSuccess.set(false);
+  }
+
+  submitAddUser(): void {
+    const user = this.newUser();
+    if (!user.name || !user.email || !user.password || !user.departmentId || user.departmentId == 0) {
+      this.addUserError.set('All fields are required.');
+      return;
+    }
+    this.isAddingUser.set(true);
+    this.addUserError.set(null);
+    
+    // Convert to number explicitly just in case
+    const payload = { ...user, departmentId: Number(user.departmentId) };
+
+    this.adminService.addUser(payload).subscribe({
+      next: () => {
+        this.isAddingUser.set(false);
+        this.addUserSuccess.set(true);
+        setTimeout(() => {
+          this.closeAddUserModal();
+          this.loadPage();
+        }, 1500);
+      },
+      error: (err) => {
+        console.error('Failed to add user', err);
+        this.addUserError.set(err?.error?.message ?? 'Failed to add user. Please try again.');
+        this.isAddingUser.set(false);
+      }
+    });
+  }
+
+  triggerBulkUpload(): void {
+    document.getElementById('bulk-upload-input')?.click();
+  }
+
+  onBulkUploadFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+
+    if (file.type !== 'text/csv' && !file.name.toLowerCase().endsWith('.csv')) {
+      alert('Please upload a valid CSV file.');
+      input.value = '';
+      return;
+    }
+
+    this.isBulkUploading.set(true);
+    this.adminService.bulkAddUsers(file).subscribe({
+      next: (result) => {
+        this.isBulkUploading.set(false);
+        this.bulkUploadResult.set(result);
+        this.isBulkResultModalOpen.set(true);
+        this.loadPage();
+        input.value = '';
+      },
+      error: (err) => {
+        console.error('Bulk upload failed', err);
+        alert(err?.error?.message ?? 'Bulk upload failed. Please try again.');
+        this.isBulkUploading.set(false);
+        input.value = '';
+      }
+    });
+  }
+
+  closeBulkResultModal(): void {
+    this.isBulkResultModalOpen.set(false);
+    this.bulkUploadResult.set(null);
   }
 }
 

@@ -237,6 +237,77 @@ namespace CapstoneProjectAPI.Services
             _logger.LogInformation("Successfully created new department '{Name}' with ID {DeptId}.", department.Name, department.Id);
             return department;
         }
+
+        public async Task<UserDetailsResponseDto> AddUser(AddUserRequestDto request, int adminUserId)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                _logger.LogWarning("AddUser failed: Email is missing.");
+                throw new ArgumentException("Email is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+            {
+                _logger.LogWarning("AddUser failed for email {Email}: Password is missing.", request.Email);
+                throw new ArgumentException("Password is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                _logger.LogWarning("AddUser failed for email {Email}: Name is missing.", request.Email);
+                throw new ArgumentException("Name is required.");
+            }
+
+            if (request.DepartmentId <= 0)
+            {
+                _logger.LogWarning("AddUser failed for email {Email}: Department ID {DeptId} is invalid.", request.Email, request.DepartmentId);
+                throw new ArgumentException("A valid Department ID is required.");
+            }
+
+            bool emailExists = await _context.Users.AnyAsync(u => u.Email == request.Email);
+            if (emailExists)
+            {
+                _logger.LogWarning("AddUser failed: User with email '{Email}' already exists.", request.Email);
+                throw new InvalidOperationException($"A user with email '{request.Email}' already exists.");
+            }
+
+            bool deptExists = await _context.Departments.AnyAsync(d => d.Id == request.DepartmentId);
+            if (!deptExists)
+            {
+                _logger.LogWarning("AddUser failed: Department with ID {DeptId} not found.", request.DepartmentId);
+                throw new EntityNotFoundException("Department not found.");
+            }
+
+            var user = new User
+            {
+                Name = request.Name,
+                Email = request.Email,
+                PasswordHash = HashPasswordForBulk(request.Password),
+                DepartmentId = request.DepartmentId,
+                IsActive = true
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                PerformedByUserId = adminUserId,
+                Action = AuditAction.UserRegistered,
+                Details = $"Admin added new user '{user.Name}' (Email: {user.Email}).",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin {AdminId} successfully added new user {UserId} ('{Name}') with email {Email}.", adminUserId, user.Id, user.Name, user.Email);
+
+            var createdUser = await _context.Users
+                .Include(u => u.Department)
+                .Include(u => u.Manager)
+                .FirstOrDefaultAsync(u => u.Id == user.Id);
+                
+            return _mapper.Map<UserDetailsResponseDto>(createdUser);
+        }
         public async Task<PagedResult<UserDocumentResponseDto>> GetAllDocuments(
             int pageNumber = 1,
             int pageSize = 10,

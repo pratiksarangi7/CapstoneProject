@@ -1,17 +1,30 @@
-
 <div class="uploads-root">
 
   <div class="uploads-toolbar">
     <div class="toolbar-left">
       <h2 class="section-heading">My Documents</h2>
       @if (!isLoading()) {
-        <span class="doc-count">{{ myDocuments().totalCount }} total</span>
+      <span class="doc-count">{{ myDocuments().totalCount }} total</span>
       }
     </div>
+
+    <div class="toolbar-filters">
+      <input type="text" class="filter-input" placeholder="Search title..." [value]="searchQuery()"
+        (input)="onSearchInput($event)" aria-label="Search documents">
+      <select class="filter-select" [value]="statusFilter() || ''" (change)="onStatusChange($event)"
+        aria-label="Filter by status">
+        <option value="">All Statuses</option>
+        <option [value]="DocumentStatus.PendingApproval">Pending</option>
+        <option [value]="DocumentStatus.Approved">Approved</option>
+        <option [value]="DocumentStatus.Rejected">Rejected</option>
+        <option [value]="DocumentStatus.DocumentWithdrawn">Withdrawn</option>
+      </select>
+    </div>
+
     <div class="toolbar-right">
       <button class="btn-upload" id="upload-btn" (click)="openUploadModal()" aria-label="Upload document">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
           <polyline points="16 16 12 12 8 16"></polyline>
           <line x1="12" y1="12" x2="12" y2="21"></line>
           <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
@@ -22,464 +35,452 @@
   </div>
 
   @if (isLoading()) {
-    <div class="loading-overlay">
-      <div class="spinner"></div>
-      <p>Loading documents…</p>
-    </div>
+  <div class="loading-overlay">
+    <div class="spinner"></div>
+    <p>Loading documents…</p>
+  </div>
   }
 
   @if (!isLoading() && myDocuments().items.length === 0) {
-    <div class="empty-state">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-      </svg>
-      <p>No documents uploaded yet.</p>
-    </div>
+  <div class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+    </svg>
+    <p>No documents uploaded yet.</p>
+  </div>
   }
 
   @if (!isLoading() && myDocuments().items.length > 0) {
-    <div class="table-wrapper">
-      <table class="doc-table" aria-label="My uploaded documents">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th class="th-center">Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (doc of myDocuments().items; track doc.id) {
-            <tr class="doc-row" [class.doc-row--expanded]="isExpanded(doc.id)">
-              <td class="td-index">{{ doc.id }}</td>
-              <td class="td-title">
-                <span class="doc-title">{{ doc.title }}</span>
-                <span class="doc-meta">by {{ doc.createdByUserName }}</span>
-              </td>
-              <td class="td-desc">{{ doc.description }}</td>
-              <td class="td-status">
-                <span class="badge {{ statusClass(doc.documentStatus) }}">
-                  {{ doc.documentStatus }}
-                </span>
-              </td>
-              <td class="td-action">
-                <button
-                  class="btn-expand"
-                  [class.btn-expand--open]="isExpanded(doc.id)"
-                  (click)="toggleExpand(doc.id)"
-                  [attr.aria-expanded]="isExpanded(doc.id)"
-                  [attr.aria-label]="isExpanded(doc.id) ? 'Collapse details for ' + doc.title : 'Expand details for ' + doc.title">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
+  <div class="table-wrapper">
+    <table class="doc-table" aria-label="My uploaded documents">
+      <thead>
+        <tr>
+          <th class="th-index">#</th>
+          <th>Title</th>
+          <th class="th-desc">Description</th>
+          <th class="th-status">Status</th>
+          <th class="th-center">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (doc of myDocuments().items; track doc.id) {
+        <tr class="doc-row" [class.doc-row--expanded]="isExpanded(doc.id)">
+          <td class="td-index">{{ doc.id }}</td>
+          <td class="td-title">
+            <span class="doc-title">{{ doc.title }}</span>
+            <span class="doc-meta">by {{ doc.createdByUserName }}</span>
+          </td>
+          <td class="td-desc">{{ doc.description }}</td>
+          <td class="td-status">
+            <span class="badge {{ statusClass(doc.documentStatus) }}">
+              {{ doc.documentStatus }}
+            </span>
+          </td>
+          <td class="td-action">
+            <button class="btn-expand" [class.btn-expand--open]="isExpanded(doc.id)" (click)="toggleExpand(doc.id)"
+              [attr.aria-expanded]="isExpanded(doc.id)"
+              [attr.aria-label]="isExpanded(doc.id) ? 'Collapse details for ' + doc.title : 'Expand details for ' + doc.title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </td>
+        </tr>
+
+        @if (isExpanded(doc.id)) {
+        <tr class="detail-row">
+          <td colspan="5">
+            <div class="detail-panel slide-down">
+
+              <div class="detail-meta-grid">
+                <div class="meta-card">
+                  <span class="meta-label">Target Department</span>
+                  <span class="meta-value">{{ doc.targetDepartmentName }}</span>
+                </div>
+                <div class="meta-card">
+                  <span class="meta-label">Created At</span>
+                  <span class="meta-value">{{ formatDate(doc.createdAt) }}</span>
+                </div>
+                <div class="meta-card">
+                  <span class="meta-label">Current Approver</span>
+                  @if (doc.currentApproverName) {
+                  <span class="meta-value">{{ doc.currentApproverName }}
+                    <em class="meta-sub">({{ doc.currentApproverDepartmentName }})</em>
+                  </span>
+                  } @else {
+                  <span class="meta-value meta-na">—</span>
+                  }
+                </div>
+                <div class="meta-card">
+                  <span class="meta-label">Uploaded By</span>
+                  <span class="meta-value">{{ doc.createdByUserName }}
+                    <em class="meta-sub">({{ doc.createdByUserEmail }})</em>
+                  </span>
+                </div>
+              </div>
+
+              <div class="versions-section">
+                <h4 class="versions-heading">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="17 1 21 5 17 9"></polyline>
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                    <polyline points="7 23 3 19 7 15"></polyline>
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
                   </svg>
-                </button>
-              </td>
-            </tr>
+                  Version History ({{ doc.versions.length }})
+                </h4>
 
-            @if (isExpanded(doc.id)) {
-              <tr class="detail-row">
-                <td colspan="5">
-                  <div class="detail-panel slide-down">
-
-                    <div class="detail-meta-grid">
-                      <div class="meta-card">
-                        <span class="meta-label">Target Department</span>
-                        <span class="meta-value">{{ doc.targetDepartmentName }}</span>
-                      </div>
-                      <div class="meta-card">
-                        <span class="meta-label">Created At</span>
-                        <span class="meta-value">{{ formatDate(doc.createdAt) }}</span>
-                      </div>
-                      <div class="meta-card">
-                        <span class="meta-label">Current Approver</span>
-                        @if (doc.currentApproverName) {
-                          <span class="meta-value">{{ doc.currentApproverName }}
-                            <em class="meta-sub">({{ doc.currentApproverDepartmentName }})</em>
-                          </span>
-                        } @else {
-                          <span class="meta-value meta-na">—</span>
+                @if (doc.versions.length === 0) {
+                <p class="no-versions">No versions available.</p>
+                } @else {
+                <div class="versions-list">
+                  @for (ver of doc.versions; track ver.id) {
+                  <div class="version-card" [class.version-card--current]="ver.isCurrentVersion">
+                    <div class="version-header">
+                      <div class="version-badge-row">
+                        <span class="version-num">v{{ ver.versionNumber }}</span>
+                        @if (ver.isCurrentVersion) {
+                        <span class="badge-current">Current</span>
                         }
                       </div>
-                      <div class="meta-card">
-                        <span class="meta-label">Uploaded By</span>
-                        <span class="meta-value">{{ doc.createdByUserName }}
-                          <em class="meta-sub">({{ doc.createdByUserEmail }})</em>
-                        </span>
+                      <div class="version-actions-row">
+                        <button class="btn-view-doc" (click)="viewDocument(doc.id, ver)"
+                          aria-label="View document version">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                          View
+                        </button>
+                        @if (ver.isCurrentVersion && doc.documentStatus === 'Rejected') {
+                        <button class="btn-reupload" (click)="openReuploadModal(doc.id)"
+                          aria-label="Re-upload rejected document">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 16 12 12 8 16"></polyline>
+                            <line x1="12" y1="12" x2="12" y2="21"></line>
+                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                          </svg>
+                          Re-upload
+                        </button>
+                        }
                       </div>
                     </div>
 
-                    <div class="versions-section">
-                      <h4 class="versions-heading">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="17 1 21 5 17 9"></polyline>
-                          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                          <polyline points="7 23 3 19 7 15"></polyline>
-                          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    <div class="version-meta">
+                      <div class="vmeta-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                          <polyline points="13 2 13 9 20 9"></polyline>
                         </svg>
-                        Version History ({{ doc.versions.length }})
-                      </h4>
-
-                      @if (doc.versions.length === 0) {
-                        <p class="no-versions">No versions available.</p>
-                      } @else {
-                        <div class="versions-list">
-                          @for (ver of doc.versions; track ver.id) {
-                            <div class="version-card" [class.version-card--current]="ver.isCurrentVersion">
-                              <div class="version-header">
-                                <div class="version-badge-row">
-                                  <span class="version-num">v{{ ver.versionNumber }}</span>
-                                  @if (ver.isCurrentVersion) {
-                                    <span class="badge-current">Current</span>
-                                  }
-                                </div>
-                                <div class="version-actions-row">
-                                  <button class="btn-view-doc" (click)="viewDocument(doc.id, ver)" aria-label="View document version">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                      <circle cx="12" cy="12" r="3"></circle>
-                                    </svg>
-                                    View
-                                  </button>
-                                  @if (ver.isCurrentVersion && doc.documentStatus === 'Rejected') {
-                                    <button class="btn-reupload" (click)="openReuploadModal(doc.id)" aria-label="Re-upload rejected document">
-                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="16 16 12 12 8 16"></polyline>
-                                        <line x1="12" y1="12" x2="12" y2="21"></line>
-                                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
-                                      </svg>
-                                      Re-upload
-                                    </button>
-                                  }
-                                </div>
-                              </div>
-
-                              <div class="version-meta">
-                                <div class="vmeta-item">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                                    <polyline points="13 2 13 9 20 9"></polyline>
-                                  </svg>
-                                  <span>{{ ver.originalFileName }}</span>
-                                </div>
-                                <div class="vmeta-item">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                                  </svg>
-                                  <span>{{ ver.mimeType }} · {{ formatFileSize(ver.fileSize) }}</span>
-                                </div>
-                                <div class="vmeta-item">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <polyline points="12 6 12 12 16 14"></polyline>
-                                  </svg>
-                                  <span>{{ formatDate(ver.createdAt) }} by {{ ver.uploadedByUserName }}</span>
-                                </div>
-                              </div>
-
-                              @if (ver.approvalAction) {
-                                <div class="audit-section">
-                                  <h5 class="audit-heading">Audit Action</h5>
-                                  <div class="audit-card {{ actionClass(ver.approvalAction.action) }}">
-                                    <div class="audit-row">
-                                      <span class="audit-label">Action</span>
-                                      <span class="audit-value action-chip {{ actionClass(ver.approvalAction.action) }}">
-                                        {{ ver.approvalAction.action }}
-                                      </span>
-                                    </div>
-                                    <div class="audit-row">
-                                      <span class="audit-label">By</span>
-                                      <span class="audit-value">{{ ver.approvalAction.approverUserName }}</span>
-                                    </div>
-                                    <div class="audit-row">
-                                      <span class="audit-label">Date</span>
-                                      <span class="audit-value">{{ formatDate(ver.approvalAction.createdAt) }}</span>
-                                    </div>
-                                    @if (ver.approvalAction.comments) {
-                                      <div class="audit-row audit-comment">
-                                        <span class="audit-label">Comments</span>
-                                        <span class="audit-value">{{ ver.approvalAction.comments }}</span>
-                                      </div>
-                                    }
-                                  </div>
-                                </div>
-                              } @else {
-                                <div class="audit-no-action">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                       stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                  </svg>
-                                  No audit action recorded for this version.
-                                </div>
-                              }
-                            </div>
-                          }
-                        </div>
-                      }
+                        <span>{{ ver.originalFileName }}</span>
+                      </div>
+                      <div class="vmeta-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                          <line x1="8" y1="21" x2="16" y2="21"></line>
+                          <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                        <span>{{ ver.mimeType }} · {{ formatFileSize(ver.fileSize) }}</span>
+                      </div>
+                      <div class="vmeta-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>{{ formatDate(ver.createdAt) }} by {{ ver.uploadedByUserName }}</span>
+                      </div>
                     </div>
 
+                    @if (ver.approvalAction) {
+                    <div class="audit-section">
+                      <h5 class="audit-heading">Audit Action</h5>
+                      <div class="audit-card {{ actionClass(ver.approvalAction.action) }}">
+                        <div class="audit-row audit-row--action">
+                          <span class="audit-label">Action</span>
+                          <span class="audit-value action-chip {{ actionClass(ver.approvalAction.action) }}">
+                            {{ ver.approvalAction.action }}
+                          </span>
+                        </div>
+                        <div class="audit-row audit-row--by">
+                          <span class="audit-label">By</span>
+                          <span class="audit-value">{{ ver.approvalAction.approverUserName }}</span>
+                        </div>
+                        <div class="audit-row audit-row--date">
+                          <span class="audit-label">Date</span>
+                          <span class="audit-value">{{ formatDate(ver.approvalAction.createdAt) }}</span>
+                        </div>
+                        @if (ver.approvalAction.comments) {
+                        <div class="audit-row audit-comment audit-row--comments">
+                          <span class="audit-label">Comments</span>
+                          <span class="audit-value">{{ ver.approvalAction.comments }}</span>
+                        </div>
+                        }
+                      </div>
+                    </div>
+                    } @else {
+                    <div class="audit-no-action">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                      No audit action recorded for this version.
+                    </div>
+                    }
                   </div>
-                </td>
-              </tr>
-            }
-          }
-        </tbody>
-      </table>
-    </div>
+                  }
+                </div>
+                }
+              </div>
 
-    <div class="pagination-bar">
-      <button class="page-btn page-nav"
-              [disabled]="!myDocuments().hasPreviousPage"
-              (click)="goToPage(currentPage() - 1)"
-              aria-label="Previous page">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6"></polyline>
-        </svg>
-      </button>
+            </div>
+          </td>
+        </tr>
+        }
+        }
+      </tbody>
+    </table>
+  </div>
 
-      @for (pg of pageNumbers; track pg) {
-        <button class="page-btn"
-                [class.page-btn--active]="pg === currentPage()"
-                (click)="goToPage(pg)">
-          {{ pg }}
-        </button>
-      }
+  <div class="pagination-bar">
+    <button class="page-btn page-nav" [disabled]="!myDocuments().hasPreviousPage" (click)="goToPage(currentPage() - 1)"
+      aria-label="Previous page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
 
-      <button class="page-btn page-nav"
-              [disabled]="!myDocuments().hasNextPage"
-              (click)="goToPage(currentPage() + 1)"
-              aria-label="Next page">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      </button>
+    @for (pg of pageNumbers; track pg) {
+    <button class="page-btn" [class.page-btn--active]="pg === currentPage()" (click)="goToPage(pg)">
+      {{ pg }}
+    </button>
+    }
 
-      <span class="page-info">
-        Page {{ myDocuments().pageNumber }} of {{ myDocuments().totalPages }}
-        &nbsp;·&nbsp; {{ myDocuments().totalCount }} documents
-      </span>
-    </div>
+    <button class="page-btn page-nav" [disabled]="!myDocuments().hasNextPage" (click)="goToPage(currentPage() + 1)"
+      aria-label="Next page">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+
+    <span class="page-info">
+      Page {{ myDocuments().pageNumber }} of {{ myDocuments().totalPages }}
+      &nbsp;·&nbsp; {{ myDocuments().totalCount }} documents
+    </span>
+  </div>
   }
 
 
   @if (isModalOpen()) {
-    <div class="modal-overlay" (click)="closeModal()" id="doc-view-modal">
-      <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="modalFileName()">
-        <div class="modal-header">
-          <h3 class="modal-title">{{ modalFileName() }}</h3>
-          <button class="btn-modal-close" (click)="closeModal()" aria-label="Close modal">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" 
-                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+  <div class="modal-overlay" (click)="closeModal()" id="doc-view-modal">
+    <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true"
+      [attr.aria-label]="modalFileName()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ modalFileName() }}</h3>
+        <button class="btn-modal-close" (click)="closeModal()" aria-label="Close modal">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+
+      <div class="modal-body">
+        @if (isModalLoading()) {
+        <div class="modal-loader">
+          <div class="spinner"></div>
+          <p>Fetching document preview…</p>
         </div>
-
-
-        <div class="modal-body">
-          @if (isModalLoading()) {
-            <div class="modal-loader">
-              <div class="spinner"></div>
-              <p>Fetching document preview…</p>
-            </div>
-          } @else if (modalError()) {
-            <div class="modal-error-alert">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <p>{{ modalError() }}</p>
-            </div>
+        } @else if (modalError()) {
+        <div class="modal-error-alert">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <p>{{ modalError() }}</p>
+        </div>
+        } @else {
+        <div class="modal-preview-wrapper">
+          @if (modalFileType() === 'image') {
+          <img [src]="modalFileUrl()" class="preview-media preview-image" alt="Document preview image" />
+          } @else if (modalFileType() === 'pdf') {
+          <iframe [src]="modalFileUrl()" class="preview-media preview-pdf" title="PDF Document Preview"></iframe>
           } @else {
-            <div class="modal-preview-wrapper">
-              @if (modalFileType() === 'image') {
-                <img [src]="modalFileUrl()" class="preview-media preview-image" alt="Document preview image" />
-              } @else if (modalFileType() === 'pdf') {
-                <iframe [src]="modalFileUrl()" class="preview-media preview-pdf" title="PDF Document Preview"></iframe>
-              } @else {
-                <div class="preview-unsupported">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                  </svg>
-                  <p>Preview not supported for this file format.</p>
-                  <a [href]="modalFileUrl()" [download]="modalFileName()" class="btn-fallback-download">
-                    Download File
-                  </a>
-                </div>
-              }
-            </div>
-          }
-        </div>
-
-
-        <div class="modal-footer">
-          @if (!isModalLoading() && !modalError() && modalFileUrl()) {
-            <a [href]="modalFileUrl()" target="_blank" class="btn-footer-secondary" id="btn-open-tab" aria-label="Open in new tab">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
-              </svg>
-              Open in New Tab
+          <div class="preview-unsupported">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <p>Preview not supported for this file format.</p>
+            <a [href]="modalFileUrl()" [download]="modalFileName()" class="btn-fallback-download">
+              Download File
             </a>
+          </div>
           }
-          <button class="btn-footer-primary" (click)="closeModal()" id="btn-close-modal">Close</button>
         </div>
+        }
+      </div>
+
+
+      <div class="modal-footer">
+        @if (!isModalLoading() && !modalError() && modalFileUrl()) {
+        <a [href]="modalFileUrl()" target="_blank" class="btn-footer-secondary" id="btn-open-tab"
+          aria-label="Open in new tab">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          Open in New Tab
+        </a>
+        }
+        <button class="btn-footer-primary" (click)="closeModal()" id="btn-close-modal">Close</button>
       </div>
     </div>
+  </div>
   }
 
   <!-- Document Upload Modal -->
   @if (isUploadOpen()) {
-    <app-upload-doc (close)="closeUploadModal()" (uploaded)="onUploadSuccess()"></app-upload-doc>
+  <app-upload-doc (close)="closeUploadModal()" (uploaded)="onUploadSuccess()"></app-upload-doc>
   }
 
   <!-- Re-upload Modal -->
   @if (isReuploadOpen()) {
-    <div class="modal-overlay" (click)="closeReuploadModal()" id="reupload-modal-overlay">
-      <div class="modal-container reupload-modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="reupload-modal-title">
+  <div class="modal-overlay" (click)="closeReuploadModal()" id="reupload-modal-overlay">
+    <div class="modal-container reupload-modal-container" (click)="$event.stopPropagation()" role="dialog"
+      aria-modal="true" aria-labelledby="reupload-modal-title">
 
-        <div class="modal-header">
-          <h3 class="modal-title" id="reupload-modal-title">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                 style="width:20px;height:20px;vertical-align:middle;margin-right:8px;">
-              <polyline points="16 16 12 12 8 16"></polyline>
-              <line x1="12" y1="12" x2="12" y2="21"></line>
-              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
-            </svg>
-            Re-upload Document
-          </h3>
-          <button class="btn-modal-close" (click)="closeReuploadModal()" aria-label="Close re-upload modal">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-
-        <div class="modal-body reupload-modal-body">
-
-          @if (reuploadSuccess()) {
-            <div class="reupload-success">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              <p>Document re-uploaded successfully! Refreshing…</p>
-            </div>
-          } @else {
-            <div class="reupload-info-banner">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <span>Upload a corrected version. Accepted: <strong>Images &amp; PDF</strong> · Max size: <strong>5 MB</strong></span>
-            </div>
-
-            <div class="reupload-drop-zone" id="reupload-drop-zone">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                   class="drop-zone-icon">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-
-              @if (reuploadFile()) {
-                <div class="drop-zone-selected">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
-                  <span class="selected-file-name">{{ reuploadFile()!.name }}</span>
-                  <span class="selected-file-size">{{ formatFileSize(reuploadFile()!.size) }}</span>
-                </div>
-              } @else {
-                <p class="drop-zone-text">Click to select a file</p>
-                <p class="drop-zone-sub">Images (JPEG, PNG, GIF, WebP, SVG) or PDF · Max 5 MB</p>
-              }
-              <input
-                type="file"
-                id="reupload-file-input"
-                class="file-input-hidden"
-                accept="image/*,.pdf"
-                (change)="onReuploadFileChange($event)"
-                aria-label="Select file to re-upload"
-              />
-              <label for="reupload-file-input" class="drop-zone-label">Choose File</label>
-            </div>
-
-            @if (reuploadError()) {
-              <div class="reupload-error-msg">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <span>{{ reuploadError() }}</span>
-              </div>
-            }
-          }
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-footer-secondary" (click)="closeReuploadModal()" id="btn-cancel-reupload"
-                  [disabled]="reuploadLoading()">
-            Cancel
-          </button>
-          @if (!reuploadSuccess()) {
-            <button class="btn-footer-primary btn-reupload-submit" (click)="submitReupload()"
-                    id="btn-submit-reupload"
-                    [disabled]="!reuploadFile() || reuploadLoading()">
-              @if (reuploadLoading()) {
-                <span class="btn-spinner"></span>
-                Uploading…
-              } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     style="width:16px;height:16px;">
-                  <polyline points="16 16 12 12 8 16"></polyline>
-                  <line x1="12" y1="12" x2="12" y2="21"></line>
-                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
-                </svg>
-                Submit Re-upload
-              }
-            </button>
-          }
-        </div>
-
+      <div class="modal-header">
+        <h3 class="modal-title" id="reupload-modal-title">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"
+            style="width:20px;height:20px;vertical-align:middle;margin-right:8px;">
+            <polyline points="16 16 12 12 8 16"></polyline>
+            <line x1="12" y1="12" x2="12" y2="21"></line>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+          </svg>
+          Re-upload Document
+        </h3>
+        <button class="btn-modal-close" (click)="closeReuploadModal()" aria-label="Close re-upload modal">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
+
+      <div class="modal-body reupload-modal-body">
+
+        @if (reuploadSuccess()) {
+        <div class="reupload-success">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <p>Document re-uploaded successfully! Refreshing…</p>
+        </div>
+        } @else {
+        <div class="reupload-info-banner">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>Upload a corrected version. Accepted: <strong>Images &amp; PDF</strong> · Max size: <strong>5
+              MB</strong></span>
+        </div>
+
+        <div class="reupload-drop-zone" id="reupload-drop-zone">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="drop-zone-icon">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+
+          @if (reuploadFile()) {
+          <div class="drop-zone-selected">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span class="selected-file-name">{{ reuploadFile()!.name }}</span>
+            <span class="selected-file-size">{{ formatFileSize(reuploadFile()!.size) }}</span>
+          </div>
+          } @else {
+          <p class="drop-zone-text">Click to select a file</p>
+          <p class="drop-zone-sub">Images (JPEG, PNG, GIF, WebP, SVG) or PDF · Max 5 MB</p>
+          }
+          <input type="file" id="reupload-file-input" class="file-input-hidden" accept="image/*,.pdf"
+            (change)="onReuploadFileChange($event)" aria-label="Select file to re-upload" />
+          <label for="reupload-file-input" class="drop-zone-label">Choose File</label>
+        </div>
+
+        @if (reuploadError()) {
+        <div class="reupload-error-msg">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ reuploadError() }}</span>
+        </div>
+        }
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-footer-secondary" (click)="closeReuploadModal()" id="btn-cancel-reupload"
+          [disabled]="reuploadLoading()">
+          Cancel
+        </button>
+        @if (!reuploadSuccess()) {
+        <button class="btn-footer-primary btn-reupload-submit" (click)="submitReupload()" id="btn-submit-reupload"
+          [disabled]="!reuploadFile() || reuploadLoading()">
+          @if (reuploadLoading()) {
+          <span class="btn-spinner"></span>
+          Uploading…
+          } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+            <polyline points="16 16 12 12 8 16"></polyline>
+            <line x1="12" y1="12" x2="12" y2="21"></line>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+          </svg>
+          Submit Re-upload
+          }
+        </button>
+        }
+      </div>
+
     </div>
+  </div>
   }
 </div>

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 using CapstoneProjectAPI.Filters;
+using CapstoneProjectAPI.Models.Enums;
 
 namespace CapstoneProjectAPI.Controllers
 {
@@ -53,7 +54,10 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("my-uploads")]
-        public async Task<IActionResult> GetMyUploadedDocuments([FromQuery] int pageNumber, [FromQuery] int pageSize)
+        public async Task<IActionResult> GetMyUploadedDocuments([FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string search = "",
+    [FromQuery] DocumentStatus? documentStatus = null)
         {
 
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -62,7 +66,7 @@ namespace CapstoneProjectAPI.Controllers
                 return Unauthorized(new { message = "Invalid user token." });
             }
 
-            var documents = await _documentService.GetDocumentsUploadedByUserAsync(userId, pageNumber, pageSize);
+            var documents = await _documentService.GetDocumentsUploadedByUserAsync(userId, pageNumber, pageSize, search, documentStatus);
             return Ok(documents);
 
         }

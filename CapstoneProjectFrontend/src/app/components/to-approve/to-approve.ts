@@ -339,4 +339,12 @@ export class ToApprove implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.cleanupObjectURL();
   }
+
+  formatUploaderName(name: string | null): string {
+    if (!name) return '';
+    if (name.length > 15) {
+      return name.slice(0, 15) + '.....';
+    }
+    return name;
+  }
 }

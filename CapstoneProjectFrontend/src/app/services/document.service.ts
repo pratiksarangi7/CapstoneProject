@@ -8,6 +8,7 @@ import { ApproveDocumentRequestDto } from "../dtos/approve-document.request.dto"
 import { RejectDocumentRequestDto } from "../dtos/reject-document.request.dto";
 import { ReUploadDocumentRequestDto } from "../dtos/reupload-document.request.dto";
 import { TransferDocumentRequestDto } from "../dtos/transfer-document.request.dto";
+import { DocumentStatus } from "../enums/document-status-filter.enum";
 
 @Injectable({
     providedIn: "root"
@@ -16,13 +17,16 @@ import { TransferDocumentRequestDto } from "../dtos/transfer-document.request.dt
 export class DocumentService {
     constructor(private http: HttpClient) {
     }
-    public myUploadsApiCall(pageNumber: number = 1, pageSize: number = 10): Observable<MyUploadsApiResponse> {
+    public myUploadsApiCall(pageNumber: number = 1, pageSize: number = 10, search: string = "", documentStatus?: DocumentStatus): Observable<MyUploadsApiResponse> {
         const url = `${baseUrl}/document/my-uploads`;
 
-        const params = new HttpParams()
-            .set('pageNumber', pageNumber.toString())
-            .set('pageSize', pageSize.toString());
-
+        let params = new HttpParams()
+            .set("pageNumber", pageNumber)
+            .set("pageSize", pageSize)
+            .set("search", search)
+        if (documentStatus != undefined) {
+            params = params.set("documentStatus", documentStatus);
+        }
         return this.http.get<MyUploadsApiResponse>(url, { params });
     }
     public viewDocumentApiCall(documentId: number, versionId: number): Observable<Blob> {

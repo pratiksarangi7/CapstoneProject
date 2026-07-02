@@ -1,8 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { MyUploads } from '../my-uploads/my-uploads';
 import { ToApprove } from '../to-approve/to-approve';
 import { Profile } from '../profile/profile';
+import { AuthService } from '../../services/auth.service';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-user-dashboard',
@@ -19,7 +21,10 @@ export class UserDashboard {
     { id: 'profile', label: 'Profile' }
   ] as const;
 
-  constructor(private router: Router) {}
+  private router = inject(Router);
+  private authService = inject(AuthService);
+
+  userName = toSignal(this.authService.userName$, { initialValue: null });
 
   setActiveTab(tab: 'my-uploads' | 'to-approve' | 'profile') {
     this.activeTab.set(tab);

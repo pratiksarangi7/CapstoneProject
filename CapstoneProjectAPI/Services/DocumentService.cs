@@ -332,13 +332,20 @@ namespace CapstoneProjectAPI.Services
             };
         }
 
-        public async Task<PagedResult<UserDocumentResponseDto>> GetDocumentsUploadedByUserAsync(int userId, int pageNumber = 1, int pageSize = 10)
+        public async Task<PagedResult<UserDocumentResponseDto>> GetDocumentsUploadedByUserAsync(
+    int userId,
+    int pageNumber = 1,
+    int pageSize = 10,
+    string search = "",
+    DocumentStatus? status = null)
         {
             var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
             if (!userExists)
                 throw new EntityNotFoundException("User not found.");
+
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
             var query = _context.Documents
                 .Include(d => d.TargetDepartment)
                 .Include(d => d.CreatedByUser)
@@ -349,15 +356,34 @@ namespace CapstoneProjectAPI.Services
                 .Include(d => d.Versions)
                     .ThenInclude(v => v.ApprovalActions)
                         .ThenInclude(aa => aa.ApproverUser)
-                .Where(d => d.CreatedByUserId == userId)
-                .OrderByDescending(d => d.CreatedAt);
+                .AsSplitQuery() 
+                .Where(d => d.CreatedByUserId == userId);
+
+            if (status.HasValue)
+            {
+                query = query.Where(d => d.DocumentStatus == status.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string lowerSearch = search.ToLower();
+
+                query = query.Where(d => d.Title.ToLower().Contains(lowerSearch) ||
+                                     d.CreatedByUser.Name.ToLower().Contains(lowerSearch) ||
+                                     d.TargetDepartment.Name.ToLower().Contains(lowerSearch));
+            }
+
+            query = query.OrderByDescending(d => d.CreatedAt);
+
             int totalCount = await query.CountAsync();
+
             var documents = await query.Skip((pageNumber - 1) * pageSize)
-                                .Take(pageSize)
-                                .ToListAsync();
+                                       .Take(pageSize)
+                                       .ToListAsync();
+
             return new PagedResult<UserDocumentResponseDto>()
             {
-                Items = documents.Select(MapUserDocument).ToList(),
+                Items = documents.Select(DocumentService.MapUserDocument).ToList(),
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 TotalCount = totalCount

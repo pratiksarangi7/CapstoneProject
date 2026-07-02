@@ -66,6 +66,19 @@ namespace CapstoneProjectAPI.Controllers
             return CreatedAtAction(nameof(AddDepartment), new { id = department.Id }, department);
         }
 
+        [HttpPost("add-user")]
+        public async Task<IActionResult> AddUser([FromBody] AddUserRequestDto request)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int adminUserId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            var result = await _adminService.AddUser(request, adminUserId);
+            return Ok(result);
+        }
+
         [HttpGet("departments")]
         public async Task<IActionResult> GetDepartments()
         {
@@ -76,7 +89,10 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("documents/all")]
-        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, int pageSize = 10, string search = "", DocumentStatus? documentStatus=null)
+        public async Task<IActionResult> GetAllDocuments([FromQuery] int pageNumber = 1, 
+    [FromQuery] int pageSize = 10, 
+    [FromQuery] string search = "", 
+    [FromQuery] DocumentStatus? documentStatus = null)
         {
             var documents = await _adminService.GetAllDocuments(pageNumber, pageSize, search, documentStatus);
             return Ok(documents);

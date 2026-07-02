@@ -4,6 +4,7 @@ import { MyUploadsApiResponse } from '../../dtos/my-uploads.response.dto';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DocumentVersionResponseDto } from '../../dtos/document-version.response.dto';
 import { UploadDoc } from '../upload-doc/upload-doc';
+import { DocumentStatus } from '../../enums/document-status-filter.enum';
 
 @Component({
   selector: 'app-my-uploads',
@@ -12,6 +13,11 @@ import { UploadDoc } from '../upload-doc/upload-doc';
   styleUrl: './my-uploads.css',
 })
 export class MyUploads implements OnInit, OnDestroy {
+  DocumentStatus = DocumentStatus;
+
+  searchQuery = signal<string>('');
+  statusFilter = signal<DocumentStatus | undefined>(undefined);
+
   currentPage = signal(1);
   pageSize = signal(10);
 
@@ -48,6 +54,7 @@ export class MyUploads implements OnInit, OnDestroy {
   reuploadError = signal<string | null>(null);
   reuploadLoading = signal(false);
   reuploadSuccess = signal(false);
+  searchTimeout: any;
 
   constructor(
     private documentService: DocumentService,
@@ -61,7 +68,7 @@ export class MyUploads implements OnInit, OnDestroy {
   loadPage(): void {
     this.isLoading.set(true);
     this.documentService
-      .myUploadsApiCall(this.currentPage(), this.pageSize())
+      .myUploadsApiCall(this.currentPage(), this.pageSize(), this.searchQuery(), this.statusFilter())
       .subscribe({
         next: (data) => {
           this.myDocuments.set(data);
@@ -74,6 +81,29 @@ export class MyUploads implements OnInit, OnDestroy {
         },
       });
   }
+
+  onSearchInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.searchQuery.set(input.value);
+    this.currentPage.set(1);
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.loadPage();
+    }, 500);
+  }
+
+
+  onStatusChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const value = select.value as DocumentStatus | '';
+    this.statusFilter.set(value === '' ? undefined : value);
+    this.currentPage.set(1);
+    this.loadPage();
+  }
+
+
 
   goToPage(page: number): void {
     const total = this.myDocuments().totalPages;
@@ -146,7 +176,7 @@ export class MyUploads implements OnInit, OnDestroy {
     this.documentService.viewDocumentApiCall(documentId, version.id).subscribe({
       next: (blob: Blob) => {
         const mimeType = version.mimeType || blob.type;
-        
+
         if (mimeType.startsWith('image/')) {
           this.modalFileType.set('image');
         } else if (mimeType === 'application/pdf') {

@@ -31,10 +31,13 @@
       <table class="doc-table" aria-label="Documents pending approval">
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Uploaded By</th>
-            <th>Date</th>
+            <th class="th-title">
+              <span class="title-text-full">Title</span>
+              <span class="title-text-small">File</span>
+            </th>
+            <th class="th-desc">Description</th>
+            <th class="th-author">Uploaded By</th>
+            <th class="th-date">Date</th>
             <th class="th-center">Versions</th>
           </tr>
         </thead>
@@ -44,6 +47,7 @@
             <tr class="doc-row" [class.doc-row--expanded]="isExpanded(doc.id)">
               <td class="td-title">
                 <span class="doc-title">{{ doc.title }}</span>
+                <span class="doc-meta-author">by {{ formatUploaderName(doc.createdByUserName) }}</span>
               </td>
               <td class="td-desc">{{ doc.description }}</td>
               <td class="td-author">

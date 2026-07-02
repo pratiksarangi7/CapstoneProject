@@ -7,7 +7,16 @@
         {{ usersResponse().totalCount }} {{ usersResponse().totalCount === 1 ? 'user' : 'users' }}
       </span>
     </div>
-    <div class="toolbar-right">
+    <div class="toolbar-right" style="display: flex; gap: 10px; align-items: center;">
+      <button class="btn-reactivate" style="padding: 8px 16px; border: none; border-radius: 6px; background-color: var(--accent-primary); color: white; cursor: pointer; font-weight: 600;" (click)="openAddUserModal()">+ Add User</button>
+      <button class="btn-ghost-cancel" style="padding: 8px 16px; border: 1px solid var(--input-border); border-radius: 6px; background-color: transparent; cursor: pointer; font-weight: 600;" (click)="triggerBulkUpload()" [disabled]="isBulkUploading()">
+        @if (isBulkUploading()) {
+          Uploading...
+        } @else {
+          Bulk Upload (CSV)
+        }
+      </button>
+      <input type="file" id="bulk-upload-input" accept=".csv,text/csv" style="display: none;" (change)="onBulkUploadFileChange($event)" />
       <div class="manager-search-wrapper" style="width: 300px; margin-bottom: 0;">
         <div class="manager-input-row">
           <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -478,6 +487,163 @@
       <!-- Modal Footer -->
       <div class="modal-footer">
         <button class="btn-footer-primary" (click)="closeUserDetails()">Close Profile</button>
+      </div>
+
+    </div>
+  </div>
+  }
+
+  <!-- Add User Modal -->
+  @if (isAddUserModalOpen()) {
+  <div class="modal-overlay" (click)="closeAddUserModal()" id="add-user-modal">
+    <div class="modal-container" style="max-width: 500px; height: auto; max-height: 90vh;" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Add New User">
+      <div class="modal-header">
+        <h3 class="modal-title">Add New User</h3>
+        <button class="btn-modal-close" (click)="closeAddUserModal()" aria-label="Close modal">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (addUserSuccess()) {
+        <div class="reject-success-banner" style="display:flex; gap:10px; padding:16px; background-color: #d1fae5; color: #065f46; border-radius: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <span>User successfully added! Refreshing list...</span>
+        </div>
+        } @else {
+          <div class="add-user-form" style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="newUser-name" style="font-weight:600; font-size:0.875rem;">Name <span style="color:#ef4444;">*</span></label>
+              <input id="newUser-name" type="text" style="padding: 10px; border-radius: 6px; border: 1px solid var(--input-border);" [ngModel]="newUser().name" (ngModelChange)="newUser.set({...newUser(), name: $event})" placeholder="Enter full name" [disabled]="isAddingUser()" />
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="newUser-email" style="font-weight:600; font-size:0.875rem;">Email <span style="color:#ef4444;">*</span></label>
+              <input id="newUser-email" type="email" autocomplete="off" style="padding: 10px; border-radius: 6px; border: 1px solid var(--input-border);" [ngModel]="newUser().email" (ngModelChange)="newUser.set({...newUser(), email: $event})" placeholder="Enter email address" [disabled]="isAddingUser()" />
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="newUser-password" style="font-weight:600; font-size:0.875rem;">Password <span style="color:#ef4444;">*</span></label>
+              <input id="newUser-password" type="password" autocomplete="new-password" style="padding: 10px; border-radius: 6px; border: 1px solid var(--input-border);" [ngModel]="newUser().password" (ngModelChange)="newUser.set({...newUser(), password: $event})" placeholder="Enter temporary password" [disabled]="isAddingUser()" />
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+              <label for="newUser-dept" style="font-weight:600; font-size:0.875rem;">Department <span style="color:#ef4444;">*</span></label>
+              <select id="newUser-dept" style="padding: 10px; border-radius: 6px; border: 1px solid var(--input-border);" [ngModel]="newUser().departmentId" (ngModelChange)="newUser.set({...newUser(), departmentId: $event})" [disabled]="isAddingUser()">
+                <option [value]="0" disabled>Select a department</option>
+                @for (dept of allDepartments(); track dept.id) {
+                  <option [value]="dept.id">{{ dept.name }}</option>
+                }
+              </select>
+            </div>
+            @if (addUserError()) {
+              <div class="reject-error" style="color: #ef4444; font-size: 0.875rem; margin-top: 8px;">{{ addUserError() }}</div>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        @if (!addUserSuccess()) {
+          <button class="btn-ghost-cancel" style="padding: 8px 16px; border: 1px solid var(--input-border); border-radius: 6px; background-color: transparent; cursor: pointer; font-weight: 600;" (click)="closeAddUserModal()" [disabled]="isAddingUser()">Cancel</button>
+          <button class="btn-action-primary" style="padding: 8px 16px; border: none; border-radius: 6px; background-color: var(--accent-primary); color: white; cursor: pointer; font-weight: 600;" (click)="submitAddUser()" [disabled]="isAddingUser()">
+            @if (isAddingUser()) {
+              Adding...
+            } @else {
+              Add User
+            }
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Bulk Upload Result Modal -->
+  @if (isBulkResultModalOpen() && bulkUploadResult()) {
+  <div class="modal-overlay" (click)="closeBulkResultModal()" id="bulk-result-modal">
+    <div class="modal-container bulk-result-modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="bulk-result-modal-title">
+
+      <div class="modal-header">
+        <h3 class="modal-title" id="bulk-result-modal-title">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:middle;margin-right:8px;">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Bulk Upload Results
+        </h3>
+        <button class="btn-modal-close" (click)="closeBulkResultModal()" aria-label="Close bulk result modal">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body" style="overflow-y: auto;">
+        <!-- Summary Cards -->
+        <div class="bulk-summary-grid">
+          <div class="bulk-summary-card bulk-summary-total">
+            <span class="bulk-summary-number">{{ bulkUploadResult()!.totalRows }}</span>
+            <span class="bulk-summary-label">Total Rows</span>
+          </div>
+          <div class="bulk-summary-card bulk-summary-success">
+            <span class="bulk-summary-number">{{ bulkUploadResult()!.successCount }}</span>
+            <span class="bulk-summary-label">Created</span>
+          </div>
+          <div class="bulk-summary-card bulk-summary-failure">
+            <span class="bulk-summary-number">{{ bulkUploadResult()!.failureCount }}</span>
+            <span class="bulk-summary-label">Failed</span>
+          </div>
+        </div>
+
+        <!-- Per-Row Results Table -->
+        <div class="bulk-result-table-wrapper">
+          <table class="bulk-result-table">
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of bulkUploadResult()!.results; track row.rowNumber) {
+              <tr [class.bulk-row-success]="row.success" [class.bulk-row-failure]="!row.success">
+                <td class="bulk-td-row">{{ row.rowNumber }}</td>
+                <td class="bulk-td-status">
+                  @if (row.success) {
+                  <span class="bulk-badge bulk-badge-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Success
+                  </span>
+                  } @else {
+                  <span class="bulk-badge bulk-badge-failure">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Failed
+                  </span>
+                  }
+                </td>
+                <td class="bulk-td-name">{{ row.name ?? '—' }}</td>
+                <td class="bulk-td-email">{{ row.email ?? '—' }}</td>
+                <td class="bulk-td-error">
+                  @if (row.error) {
+                  <span class="bulk-error-text">{{ row.error }}</span>
+                  } @else {
+                  <span class="bulk-ok-text">—</span>
+                  }
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-footer-primary" (click)="closeBulkResultModal()" id="btn-close-bulk-result">Close</button>
       </div>
 
     </div>

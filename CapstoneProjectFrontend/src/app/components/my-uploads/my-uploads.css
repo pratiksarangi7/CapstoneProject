@@ -71,6 +71,62 @@
   stroke: #fff;
 }
 
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  flex: 1;
+  max-width: 480px;
+}
+
+.filter-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-select {
+  flex-shrink: 0;
+}
+
+.filter-input,
+.filter-select {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--input-border);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  border-color: var(--accent-primary);
+}
+
+.btn-clear-filters {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--input-border);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-clear-filters:hover:not(:disabled) {
+  background-color: var(--card-border);
+  color: var(--text-primary);
+}
+
+.btn-clear-filters:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Loading ──────────────────────────────────────────────────────────────── */
 .loading-overlay {
   display: flex;
@@ -645,8 +701,10 @@
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .td-desc {
+@media (max-width: 649px) {
+
+  .th-status,
+  .td-status {
     display: none;
   }
 
@@ -659,6 +717,54 @@
     text-align: center;
     margin-left: 0;
     margin-top: 4px;
+  }
+}
+
+@media (max-width: 449px) {
+
+  .th-desc,
+  .td-desc {
+    display: none;
+  }
+}
+
+@media (max-width: 500px) {
+  .toolbar-filters {
+    width: 100%;
+    max-width: none;
+  }
+
+  .toolbar-right,
+  .btn-upload {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 374px) {
+
+  .th-index,
+  .td-index {
+    display: none;
+  }
+
+  .detail-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .version-meta,
+  .audit-no-action {
+    display: none;
+  }
+
+  .audit-heading,
+  .audit-row--date,
+  .audit-row--comments {
+    display: none;
+  }
+
+  .badge-current {
+    display: none;
   }
 }
 
@@ -1178,5 +1284,7 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
