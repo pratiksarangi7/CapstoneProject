@@ -6,6 +6,7 @@ using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
+using CapstoneProjectAPI.Misc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -16,12 +17,14 @@ namespace CapstoneProjectAPI.Services
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
+        private readonly AuditLogService _auditLogService;
 
-        public UserService(AppDbContext context, IMapper mapper, ILogger<UserService> logger)
+        public UserService(AppDbContext context, IMapper mapper, ILogger<UserService> logger, AuditLogService auditLogService)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
+            _auditLogService = auditLogService;
         }
 
         public async Task<UserDetailsResponseDto> GetUserDetailsAsync(int userId)
@@ -115,6 +118,17 @@ namespace CapstoneProjectAPI.Services
                 users.Count, currentUser.DepartmentId, currentUserId);
 
             return users;
+        }
+
+        public async Task<PagedResult<AuditLogResponseDto>> GetUserDocumentActionsAsync(int userId, int pageNumber, int pageSize)
+        {
+            var actions = new List<AuditAction>
+            {
+                AuditAction.DocumentApproved,
+                AuditAction.DocumentRejected,
+                AuditAction.DocumentForwarded
+            };
+            return await _auditLogService.GetAuditLogsByActions(actions, userId, pageNumber, pageSize);
         }
 
         private static string HashPassword(string password)

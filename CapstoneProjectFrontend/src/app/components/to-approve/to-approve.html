@@ -6,6 +6,11 @@
         <span class="doc-count">{{ pendingDocuments().totalCount }} total</span>
       }
     </div>
+
+    <div class="toolbar-filters">
+      <input type="text" class="filter-input" placeholder="Search title..." [value]="searchQuery()"
+        (input)="onSearchInput($event)" aria-label="Search pending documents">
+    </div>
   </div>
 
   @if (isLoading()) {

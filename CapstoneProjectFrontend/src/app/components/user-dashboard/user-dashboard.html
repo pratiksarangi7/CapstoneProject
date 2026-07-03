@@ -34,6 +34,11 @@
                 <polyline points="14 2 14 8 20 8"></polyline>
                 <polyline points="9 15 11 17 15 13"></polyline>
               </svg>
+            } @else if (item.id === 'past-approvals') {
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
             } @else if (item.id === 'profile') {
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -72,6 +77,8 @@
             My Uploads
           } @else if (activeTab() === 'to-approve') {
             To Approve
+          } @else if (activeTab() === 'past-approvals') {
+            Past Approvals
           } @else if (activeTab() === 'profile') {
             My Profile
           }
@@ -81,6 +88,8 @@
             Manage, upload, and view all your submitted documents.
           } @else if (activeTab() === 'to-approve') {
             Review and take actions on documents pending your approval.
+          } @else if (activeTab() === 'past-approvals') {
+            View the history of all documents you have reviewed and approved.
           } @else if (activeTab() === 'profile') {
             Update your account details and portal preferences.
           }
@@ -99,6 +108,10 @@
       } @else if (activeTab() === 'to-approve') {
         <div class="fade-in-content">
           <app-to-approve></app-to-approve>
+        </div>
+      } @else if (activeTab() === 'past-approvals') {
+        <div class="fade-in-content">
+          <app-past-approvals></app-past-approvals>
         </div>
       } @else if (activeTab() === 'profile') {
         <div class="fade-in-content">

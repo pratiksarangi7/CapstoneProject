@@ -2,6 +2,7 @@ using System.Security.Claims;
 using CapstoneProjectAPI.Filters;
 using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Models.DTOs;
+using CapstoneProjectAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -68,6 +69,21 @@ namespace CapstoneProjectAPI.Controllers
 
             var users = await _userService.GetUsersOutsideDepartmentAsync(userId);
             return Ok(users);
+        }
+
+        [HttpGet("me/actions")]
+        public async Task<IActionResult> GetMyActions(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Invalid user token." });
+            }
+
+            var results = await _userService.GetUserDocumentActionsAsync(userId, pageNumber, pageSize);
+            return Ok(results);
         }
     }
 }

@@ -24,6 +24,8 @@ export class ToApprove implements OnInit, OnDestroy {
   currentPage = signal(1);
   pageSize = signal(10);
   isLoading = signal(false);
+  searchQuery = signal<string>('');
+  searchTimeout: any;
 
   pendingDocuments = signal<DocsPendingApprovalApiResponse>({
     items: [],
@@ -73,7 +75,7 @@ export class ToApprove implements OnInit, OnDestroy {
   loadPage(): void {
     this.isLoading.set(true);
     this.documentService
-      .getDocsPendingApproval(this.currentPage(), this.pageSize())
+      .getDocsPendingApproval(this.currentPage(), this.pageSize(), this.searchQuery())
       .subscribe({
         next: (data) => {
           this.pendingDocuments.set(data);
@@ -85,6 +87,18 @@ export class ToApprove implements OnInit, OnDestroy {
           this.isLoading.set(false);
         },
       });
+  }
+
+  onSearchInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.searchQuery.set(input.value);
+    this.currentPage.set(1);
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.loadPage();
+    }, 500);
   }
 
   goToPage(page: number): void {

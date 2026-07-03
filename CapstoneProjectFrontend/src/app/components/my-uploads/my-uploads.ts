@@ -297,6 +297,21 @@ export class MyUploads implements OnInit, OnDestroy {
     });
   }
 
+  withdrawDocument(documentId: number): void {
+    if (confirm('Are you sure you want to withdraw this document? This action cannot be undone.')) {
+      this.documentService.withdrawDocument(documentId).subscribe({
+        next: () => {
+          this.currentPage.set(1);
+          this.loadPage();
+        },
+        error: (err) => {
+          console.error('Failed to withdraw document', err);
+          alert('Failed to withdraw the document. Please try again later.');
+        }
+      });
+    }
+  }
+
   ngOnDestroy(): void {
     this.cleanupObjectURL();
   }

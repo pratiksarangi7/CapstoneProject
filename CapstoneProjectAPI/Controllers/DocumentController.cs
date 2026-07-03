@@ -72,7 +72,7 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("pending-approvals")]
-        public async Task<IActionResult> GetDocumentsPendingApproval([FromQuery] int pageNumber, [FromQuery] int pageSize)
+        public async Task<IActionResult> GetDocumentsPendingApproval([FromQuery] int pageNumber=1, [FromQuery] int pageSize=10, [FromQuery] string search="")
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
@@ -80,7 +80,7 @@ namespace CapstoneProjectAPI.Controllers
                 return Unauthorized(new { message = "Invalid user token." });
             }
 
-            var documents = await _documentService.GetDocumentsPendingApprovalByUserAsync(userId, pageNumber, pageSize);
+            var documents = await _documentService.GetDocumentsPendingApprovalByUserAsync(userId, pageNumber, pageSize, search);
             return Ok(documents);
         }
 

@@ -194,10 +194,7 @@ namespace CapstoneProjectAPI.Services
         public async Task WithdrawDocumentAsync(int documentId, int requestingUserId)
         {
             var document = await _context.Documents
-                .Include(d => d.Versions)
-                    .ThenInclude(v => v.AuditLogs)
-                .Include(d => d.AuditLogs)
-                .FirstOrDefaultAsync(d => d.Id == documentId);
+        .FirstOrDefaultAsync(d => d.Id == documentId);
 
             if (document == null)
             {
@@ -219,13 +216,9 @@ namespace CapstoneProjectAPI.Services
                     "Only documents with status 'PendingApproval' can be withdrawn.");
             }
 
-            string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
-            foreach (var version in document.Versions)
-            {
-                string filePath = Path.Combine(uploadsFolder, version.StoredFileName);
-                if (File.Exists(filePath))
-                    File.Delete(filePath);
-            }
+            document.DocumentStatus = DocumentStatus.DocumentWithdrawn;
+            document.CurrentApproverUserId = null; 
+
             _context.AuditLogs.Add(new AuditLog()
             {
                 PerformedByUserId = requestingUserId,
@@ -233,10 +226,9 @@ namespace CapstoneProjectAPI.Services
                 Details = $"Document {documentId} that was uploaded by {requestingUserId} was withdrawn"
             });
 
-            _context.Documents.Remove(document);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Document {DocumentId} successfully withdrawn and deleted by user {UserId}.", documentId, requestingUserId);
+            _logger.LogInformation("Document {DocumentId} successfully marked as withdrawn by user {UserId}.", documentId, requestingUserId);
         }
 
         private async Task<int?> DetermineFirstApprover(User uploader, int targetDepartmentId)
@@ -356,7 +348,7 @@ namespace CapstoneProjectAPI.Services
                 .Include(d => d.Versions)
                     .ThenInclude(v => v.ApprovalActions)
                         .ThenInclude(aa => aa.ApproverUser)
-                .AsSplitQuery() 
+                .AsSplitQuery()
                 .Where(d => d.CreatedByUserId == userId);
 
             if (status.HasValue)
@@ -390,10 +382,15 @@ namespace CapstoneProjectAPI.Services
             };
         }
 
-        public async Task<PagedResult<UserDocumentResponseDto>> GetDocumentsPendingApprovalByUserAsync(int userId, int pageNumber = 1, int pageSize = 10)
+        public async Task<PagedResult<UserDocumentResponseDto>> GetDocumentsPendingApprovalByUserAsync(
+    int userId,
+    int pageNumber = 1,
+    int pageSize = 10,
+    string search = "")
         {
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
             var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
             if (!userExists)
                 throw new EntityNotFoundException("User not found.");
@@ -408,10 +405,26 @@ namespace CapstoneProjectAPI.Services
                 .Include(d => d.Versions)
                     .ThenInclude(v => v.ApprovalActions)
                         .ThenInclude(aa => aa.ApproverUser)
-                .Where(d => d.CurrentApproverUserId == userId && d.DocumentStatus == DocumentStatus.PendingApproval)
-                .OrderByDescending(d => d.CreatedAt);
+                        .AsSplitQuery()
+                .Where(d => d.CurrentApproverUserId == userId && d.DocumentStatus == DocumentStatus.PendingApproval);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string lowerSearch = search.ToLower();
+
+                query = query.Where(d => d.Title.ToLower().Contains(lowerSearch) ||
+                                         d.CreatedByUser.Name.ToLower().Contains(lowerSearch) ||
+                                         d.TargetDepartment.Name.ToLower().Contains(lowerSearch));
+            }
+
+            query = query.OrderByDescending(d => d.CreatedAt);
+
             int totalCount = await query.CountAsync();
-            var documents = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+
+            var documents = await query.Skip((pageNumber - 1) * pageSize)
+                                       .Take(pageSize)
+                                       .ToListAsync();
+
             return new PagedResult<UserDocumentResponseDto>()
             {
                 Items = documents.Select(MapUserDocument).ToList(),

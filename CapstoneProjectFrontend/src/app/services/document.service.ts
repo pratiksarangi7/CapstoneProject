@@ -29,6 +29,10 @@ export class DocumentService {
         }
         return this.http.get<MyUploadsApiResponse>(url, { params });
     }
+    public withdrawDocument(documentId: number){
+        const url=`${baseUrl}/document/${documentId}`;
+        return this.http.delete(url);
+    }
     public viewDocumentApiCall(documentId: number, versionId: number): Observable<Blob> {
         const url = `${baseUrl}/document/${documentId}/file`;
         const params = new HttpParams().set('versionId', versionId.toString());
@@ -38,11 +42,12 @@ export class DocumentService {
         const url = `${baseUrl}/document/upload`;
         return this.http.post(url, formData);
     }
-    public getDocsPendingApproval(pageNumber: number = 1, pageSize: number = 10) {
+    public getDocsPendingApproval(pageNumber: number = 1, pageSize: number = 10, search: string = "") {
         const url = `${baseUrl}/document/pending-approvals`;
         const params = new HttpParams()
             .set('pageNumber', pageNumber.toString())
-            .set('pageSize', pageSize.toString());
+            .set('pageSize', pageSize.toString())
+            .set('search', search);
         return this.http.get<DocsPendingApprovalApiResponse>(url, { params })
     }
     public approveDocumentApiCall(documentId: number, action: ApproveDocumentRequestDto) {

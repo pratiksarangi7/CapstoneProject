@@ -1072,6 +1072,35 @@
   stroke: #c0392b;
 }
 
+/* ── Withdraw button (version card) ─────────────────────────────────────── */
+.btn-withdraw {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1.5px solid #fed7aa;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-withdraw:hover {
+  background-color: #ffedd5;
+  border-color: #fdba74;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(194, 65, 12, 0.15);
+}
+
+.btn-withdraw svg {
+  width: 14px;
+  height: 14px;
+  stroke: #c2410c;
+}
+
 /* ── Re-upload modal container ────────────────────────────────────────────── */
 .reupload-modal-container {
   max-width: 480px;
