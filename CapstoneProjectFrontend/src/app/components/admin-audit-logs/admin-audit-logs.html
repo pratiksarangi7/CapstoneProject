@@ -13,8 +13,7 @@
         </svg>
       </div>
       <div>
-        <h2 class="section-heading">Audit Logs</h2>
-        <p class="section-subheading">Track all system activity and user actions</p>
+        <h2 class="section-heading">All Audit Logs</h2>
       </div>
       <span class="logs-count-badge" id="audit-total-badge">
         {{ logsResponse().totalCount }} {{ logsResponse().totalCount === 1 ? 'event' : 'events' }}
@@ -235,6 +234,83 @@
         }
       </tbody>
     </table>
+  </div>
+
+  <!-- Logs Accordion List (Visible on <1440px) -->
+  <div class="logs-accordion-list">
+    @for (log of logsResponse().items; track log.id; let idx = $index) {
+    <div class="accordion-item" [class.accordion-item--open]="expandedLogId() === log.id" id="accordion-item-{{ log.id }}">
+      <div class="accordion-header">
+        <div class="header-left">
+          <div class="log-user-cell">
+            <div class="user-avatar">{{ getInitials(log.performedByUserName) }}</div>
+            <div class="user-info">
+              <span class="user-name">{{ log.performedByUserName }}</span>
+              <span class="user-email">{{ log.performedByUserEmail }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="header-middle">
+          <span class="action-badge" [class.action-badge--user]="getActionCategory(log.action) === 'user'"
+            [class.action-badge--document]="getActionCategory(log.action) === 'document'"
+            [class.action-badge--system]="getActionCategory(log.action) === 'system'">
+            <span class="action-dot"></span>
+            <span class="action-text">{{ formatAction(log.action) }}</span>
+          </span>
+        </div>
+        <div class="header-right">
+          <button class="btn-expand" [class.btn-expand--open]="expandedLogId() === log.id" (click)="toggleLogExpand(log.id)"
+            [attr.aria-expanded]="expandedLogId() === log.id"
+            [attr.aria-label]="expandedLogId() === log.id ? 'Collapse details' : 'Expand details'">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <div class="accordion-panel" [style.max-height]="expandedLogId() === log.id ? '600px' : '0'">
+        <div class="panel-inner">
+          <div class="details-grid">
+            <div class="details-card">
+              <span class="details-label">Log ID</span>
+              <span class="details-value">#{{ log.id }}</span>
+            </div>
+            <div class="details-card">
+              <span class="details-label">Document</span>
+              <span class="details-value">
+                @if (log.documentTitle) {
+                <span class="doc-title">{{ log.documentTitle }}</span>
+                @if (log.documentVersionNumber !== null) {
+                <span class="doc-version" style="margin-left: 6px; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; background: var(--card-border); color: var(--text-secondary);">v{{ log.documentVersionNumber }}</span>
+                }
+                } @else {
+                <span class="td-muted">—</span>
+                }
+              </span>
+            </div>
+            <div class="details-card">
+              <span class="details-label">Details</span>
+              <span class="details-value">
+                @if (log.details) {
+                <span>{{ log.details }}</span>
+                } @else {
+                <span class="td-muted">—</span>
+                }
+              </span>
+            </div>
+            <div class="details-card">
+              <span class="details-label">Timestamp</span>
+              <span class="details-value">
+                {{ formatDate(log.createdAt) }} &middot; {{ formatTime(log.createdAt) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    }
   </div>
 
   <div class="pagination-bar">

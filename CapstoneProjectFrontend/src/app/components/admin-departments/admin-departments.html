@@ -3,16 +3,17 @@
   <!-- ── Toolbar ───────────────────────────────────────────────────────────────── -->
   <div class="depts-toolbar">
     <div class="toolbar-left">
-      <div class="section-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-        </svg>
-      </div>
-      <div>
-        <h2 class="section-heading">Departments</h2>
-        <p class="section-subheading">Manage organizational departments and their members</p>
+      <div class="toolbar-title-group" style="display: flex; align-items: center; gap: 14px;">
+        <div class="section-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+        </div>
+        <div>
+          <h2 class="section-heading">All Departments</h2>
+        </div>
       </div>
       <span class="dept-count-badge" id="dept-total-badge">
         {{ departments().length }} {{ departments().length === 1 ? 'department' : 'departments' }}
@@ -20,8 +21,8 @@
     </div>
 
     <button class="btn-create" id="create-dept-btn" (click)="openCreateModal()">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="19"></line>
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
@@ -56,8 +57,7 @@
     <div class="accordion-item" [class.accordion-item--open]="isDeptOpen(dept.id)" id="dept-item-{{ dept.id }}">
 
       <!-- Accordion Header -->
-      <button class="accordion-header" (click)="toggleDept(dept.id)"
-        [attr.aria-expanded]="isDeptOpen(dept.id)"
+      <button class="accordion-header" (click)="toggleDept(dept.id)" [attr.aria-expanded]="isDeptOpen(dept.id)"
         [attr.aria-controls]="'dept-panel-' + dept.id">
         <div class="header-left">
           <div class="dept-icon">
@@ -153,8 +153,7 @@
           </div>
           <h3 class="modal-title">Create New Department</h3>
         </div>
-        <button class="btn-modal-close" (click)="closeCreateModal()" aria-label="Close modal"
-          [disabled]="isCreating()">
+        <button class="btn-modal-close" (click)="closeCreateModal()" aria-label="Close modal" [disabled]="isCreating()">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -168,8 +167,8 @@
         <!-- Success banner -->
         @if (createSuccess()) {
         <div class="alert alert-success" role="alert">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
             <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
@@ -180,8 +179,8 @@
         <!-- Error banner -->
         @if (createError()) {
         <div class="alert alert-error" role="alert">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -193,17 +192,9 @@
         <!-- Input -->
         <div class="form-group">
           <label for="new-dept-name-input" class="form-label">Department Name</label>
-          <input
-            id="new-dept-name-input"
-            type="text"
-            class="form-input"
-            placeholder="e.g. Engineering, Finance, HR..."
-            [ngModel]="newDeptName()"
-            (ngModelChange)="newDeptName.set($event); createError.set(null)"
-            (keydown.enter)="submitCreateDepartment()"
-            [disabled]="isCreating()"
-            autocomplete="off"
-          />
+          <input id="new-dept-name-input" type="text" class="form-input" placeholder="e.g. Engineering, Finance, HR..."
+            [ngModel]="newDeptName()" (ngModelChange)="newDeptName.set($event); createError.set(null)"
+            (keydown.enter)="submitCreateDepartment()" [disabled]="isCreating()" autocomplete="off" />
           <span class="form-hint">This name will be visible to all users in the portal.</span>
         </div>
       </div>

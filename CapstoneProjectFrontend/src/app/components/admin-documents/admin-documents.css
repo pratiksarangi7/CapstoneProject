@@ -26,6 +26,18 @@
   gap: 14px;
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right .manager-search-wrapper {
+  width: 300px;
+  margin-bottom: 0;
+}
+
 .section-icon {
   display: flex;
   align-items: center;
@@ -68,6 +80,10 @@
   border-radius: 999px;
   padding: 4px 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── Loading ─────────────────────────────────────────────────────────────── */
@@ -872,10 +888,42 @@
   .doc-title { max-width: 200px; }
   .detail-meta-grid { grid-template-columns: 1fr 1fr; }
   .page-info { width: 100%; text-align: center; margin-left: 0; margin-top: 4px; }
+  .section-subheading { display: none !important; }
+}
+
+@media (max-width: 499px) {
+  .docs-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  .toolbar-left {
+    width: 100%;
+  }
+  .toolbar-right {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 12px;
+  }
+  .status-filter-wrapper,
+  .status-filter-select {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .toolbar-right .manager-search-wrapper {
+    width: 100% !important;
+  }
 }
 
 @media (max-width: 480px) {
   .meta-dept, .meta-versions { display: none; }
   .detail-meta-grid { grid-template-columns: 1fr; }
   .modal-container { height: 95vh; max-height: none; }
+}
+
+@media (max-width: 374px) {
+  .accordion-header .status-badge {
+    display: none !important;
+  }
 }

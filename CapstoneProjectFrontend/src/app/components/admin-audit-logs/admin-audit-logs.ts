@@ -40,6 +40,7 @@ export class AdminAuditLogs implements OnInit {
   userSearchQuery = signal('');
   selectedUser = signal<UserDetails | null>(null);
   isUserDropdownOpen = signal(false);
+  expandedLogId = signal<number | null>(null);
 
   filteredUsers = computed(() => {
     const q = this.userSearchQuery().trim().toLowerCase();
@@ -96,6 +97,14 @@ export class AdminAuditLogs implements OnInit {
         this.isLoading.set(false);
       },
     });
+  }
+
+  toggleLogExpand(logId: number): void {
+    if (this.expandedLogId() === logId) {
+      this.expandedLogId.set(null);
+    } else {
+      this.expandedLogId.set(logId);
+    }
   }
 
   goToPage(page: number): void {

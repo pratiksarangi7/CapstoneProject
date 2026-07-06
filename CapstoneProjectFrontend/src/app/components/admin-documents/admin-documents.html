@@ -1,7 +1,7 @@
 <div class="admin-docs-root">
 
-  <div class="docs-toolbar" style="display: flex; justify-content: space-between; align-items: center;">
-    <div class="toolbar-left" style="display: flex; align-items: center; gap: 1rem;">
+  <div class="docs-toolbar">
+    <div class="toolbar-left">
       <div class="section-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
@@ -14,7 +14,6 @@
       </div>
       <div>
         <h2 class="section-heading">All Documents</h2>
-        <p class="section-subheading">System-wide document overview with full version history</p>
       </div>
       @if (!isLoading()) {
       <span class="doc-count-badge" id="docs-total-badge">
@@ -22,12 +21,11 @@
       </span>
       }
     </div>
-    <div class="toolbar-right" style="display: flex; gap: 1rem; align-items: center;">
+    <div class="toolbar-right">
       <div class="status-filter-wrapper">
-        <select class="status-filter-select" 
-                [ngModel]="statusFilter() || 'ALL'" 
-                (ngModelChange)="onStatusChange($event)"
-                style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; outline: none; background-color: white; color: #334155; min-width: 150px; cursor: pointer; transition: border-color 0.2s;">
+        <select class="status-filter-select" [ngModel]="statusFilter() || 'ALL'"
+          (ngModelChange)="onStatusChange($event)"
+          style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; outline: none; background-color: white; color: #334155; min-width: 150px; cursor: pointer; transition: border-color 0.2s;">
           <option value="ALL">All Statuses</option>
           <option value="PendingApproval">Pending</option>
           <option value="Approved">Approved</option>
@@ -35,7 +33,7 @@
           <option value="DocumentWithdrawn">Withdrawn</option>
         </select>
       </div>
-      <div class="manager-search-wrapper" style="width: 300px; margin-bottom: 0;">
+      <div class="manager-search-wrapper">
         <div class="manager-input-row" style="position: relative; display: flex; align-items: center;">
           <svg class="manager-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -110,7 +108,6 @@
         </div>
 
         <div class="header-right">
-          <span class="idx-badge">#{{ (currentPage() - 1) * pageSize() + idx + 1 }}</span>
           <span class="status-badge badge {{ statusClass(doc.documentStatus) }}">
             {{ statusLabel(doc.documentStatus) }}
           </span>

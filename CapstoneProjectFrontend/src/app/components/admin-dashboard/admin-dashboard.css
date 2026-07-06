@@ -233,6 +233,10 @@
     flex-direction: column;
   }
   
+  .header-greeting {
+    display: none !important;
+  }
+  
   .sidebar {
     width: 100%;
     height: auto;

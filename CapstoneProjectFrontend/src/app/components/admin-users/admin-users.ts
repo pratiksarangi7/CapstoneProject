@@ -125,7 +125,7 @@ export class AdminUsers implements OnInit {
       this.isManagersLoading.set(false);
       return;
     }
-    
+
     this.isManagersLoading.set(true);
     this.adminService.getPotentialManagers(userId, query).subscribe({
       next: (data) => {
@@ -305,7 +305,7 @@ export class AdminUsers implements OnInit {
   onManagerSearchInput(query: string): void {
     this.managerSearchQuery.set(query);
     this.isManagerDropdownOpen.set(query.trim().length > 0);
-    
+
     const user = this.selectedUser();
     if (!user) return;
 
@@ -470,7 +470,7 @@ export class AdminUsers implements OnInit {
     }
     this.isAddingUser.set(true);
     this.addUserError.set(null);
-    
+
     // Convert to number explicitly just in case
     const payload = { ...user, departmentId: Number(user.departmentId) };
 

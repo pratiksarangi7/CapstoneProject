@@ -68,6 +68,10 @@
   border-radius: 999px;
   padding: 4px 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── Create Button ───────────────────────────────────────────────────────── */
@@ -743,6 +747,12 @@
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .section-subheading {
+    display: none !important;
+  }
+}
+
 @media (max-width: 600px) {
   .members-grid {
     grid-template-columns: 1fr;
@@ -754,6 +764,23 @@
 
   .depts-toolbar {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .toolbar-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .btn-create {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 349px) {
+  .dept-count-badge {
+    display: none !important;
   }
 }
