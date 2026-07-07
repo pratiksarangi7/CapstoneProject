@@ -217,12 +217,13 @@ namespace CapstoneProjectAPI.Services
             }
 
             document.DocumentStatus = DocumentStatus.DocumentWithdrawn;
-            document.CurrentApproverUserId = null; 
+            document.CurrentApproverUserId = null;
 
             _context.AuditLogs.Add(new AuditLog()
             {
                 PerformedByUserId = requestingUserId,
                 Action = AuditAction.DocumentWithdrawn,
+                DocumentId = documentId,
                 Details = $"Document {documentId} that was uploaded by {requestingUserId} was withdrawn"
             });
 

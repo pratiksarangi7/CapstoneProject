@@ -37,7 +37,7 @@ namespace CapstoneProjectTest
 
             _mapper = mappingConfig.CreateMapper();
             var mockLogger = new Mock<ILogger<UserService>>();
-            _userService = new UserService(_context, _mapper, mockLogger.Object);
+            _userService = new UserService(_context, _mapper, mockLogger.Object, new AuditLogService(_context));
         }
 
         [TearDown]
@@ -265,6 +265,109 @@ namespace CapstoneProjectTest
             string keyB64 = Convert.ToBase64String(hmac.Key);
             string hashB64 = Convert.ToBase64String(hash);
             return $"{keyB64}:{hashB64}";
+        }
+
+        [Test]
+        public async Task GetDepartmentsAsync_ReturnsDepartments_OrderedByName()
+        {
+            _context.Departments.AddRange(
+                new Department { Name = "IT" },
+                new Department { Name = "HR" },
+                new Department { Name = "Finance" }
+            );
+            await _context.SaveChangesAsync();
+
+            var result = await _userService.GetDepartmentsAsync();
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(3));
+            Assert.That(result[0].Name, Is.EqualTo("Finance"));
+            Assert.That(result[1].Name, Is.EqualTo("HR"));
+            Assert.That(result[2].Name, Is.EqualTo("IT"));
+        }
+
+        [Test]
+        public void GetUsersOutsideDepartmentAsync_UserNotFound_ThrowsEntityNotFoundException()
+        {
+            var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _userService.GetUsersOutsideDepartmentAsync(9999));
+            Assert.That(ex.Message, Is.EqualTo("User with ID 9999 was not found."));
+        }
+
+        [Test]
+        public async Task GetUsersOutsideDepartmentAsync_ReturnsUsersInOtherDepartments_OrderedByName()
+        {
+            var dept1 = new Department { Name = "HR" };
+            var dept2 = new Department { Name = "IT" };
+            _context.Departments.AddRange(dept1, dept2);
+            await _context.SaveChangesAsync();
+
+            var currentUser = new User { Name = "Current", Email = "current@test.com", PasswordHash = "hash", DepartmentId = dept1.Id };
+            var sameDeptUser = new User { Name = "Same Dept", Email = "same@test.com", PasswordHash = "hash", DepartmentId = dept1.Id };
+            var otherUser1 = new User { Name = "Zack", Email = "zack@test.com", PasswordHash = "hash", DepartmentId = dept2.Id };
+            var otherUser2 = new User { Name = "Abby", Email = "abby@test.com", PasswordHash = "hash", DepartmentId = dept2.Id };
+
+            _context.Users.AddRange(currentUser, sameDeptUser, otherUser1, otherUser2);
+            await _context.SaveChangesAsync();
+
+            var result = await _userService.GetUsersOutsideDepartmentAsync(currentUser.Id);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(2));
+            
+            // Ordered by name alphabetically (Abby then Zack)
+            Assert.That(result[0].Id, Is.EqualTo(otherUser2.Id));
+            Assert.That(result[0].Name, Is.EqualTo("Abby"));
+            Assert.That(result[0].Email, Is.EqualTo("abby@test.com"));
+            Assert.That(result[0].DepartmentName, Is.EqualTo("IT"));
+
+            Assert.That(result[1].Id, Is.EqualTo(otherUser1.Id));
+            Assert.That(result[1].Name, Is.EqualTo("Zack"));
+            Assert.That(result[1].Email, Is.EqualTo("zack@test.com"));
+            Assert.That(result[1].DepartmentName, Is.EqualTo("IT"));
+        }
+
+        [Test]
+        public async Task GetUserDocumentActionsAsync_ReturnsOnlyMatchingActionsForUser()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user1 = new User { Name = "User One", Email = "user1@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            var user2 = new User { Name = "User Two", Email = "user2@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.AddRange(user1, user2);
+            await _context.SaveChangesAsync();
+
+            _context.AuditLogs.AddRange(
+                // Matching actions for user1
+                new AuditLog { Action = AuditAction.DocumentApproved, PerformedByUserId = user1.Id, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-20) },
+                new AuditLog { Action = AuditAction.DocumentRejected, PerformedByUserId = user1.Id, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-15) },
+                new AuditLog { Action = AuditAction.DocumentForwarded, PerformedByUserId = user1.Id, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-10) },
+                
+                // Non-matching action for user1
+                new AuditLog { Action = AuditAction.UserRegistered, PerformedByUserId = user1.Id, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5) },
+                
+                // Matching action but for user2
+                new AuditLog { Action = AuditAction.DocumentApproved, PerformedByUserId = user2.Id, CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1) }
+            );
+            await _context.SaveChangesAsync();
+
+            var result = await _userService.GetUserDocumentActionsAsync(user1.Id, pageNumber: 1, pageSize: 10);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.TotalCount, Is.EqualTo(3));
+            Assert.That(result.Items.Count, Is.EqualTo(3));
+
+            // Verify they are returned in descending order of CreatedAt
+            Assert.That(result.Items[0].Action, Is.EqualTo("DocumentForwarded"));
+            Assert.That(result.Items[1].Action, Is.EqualTo("DocumentRejected"));
+            Assert.That(result.Items[2].Action, Is.EqualTo("DocumentApproved"));
+
+            foreach (var item in result.Items)
+            {
+                Assert.That(item.PerformedByUserId, Is.EqualTo(user1.Id));
+            }
         }
     }
 }

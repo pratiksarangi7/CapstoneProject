@@ -257,7 +257,6 @@ namespace CapstoneProjectAPI.Services
                 _logger.LogWarning("AddUser failed for email {Email}: Name is missing.", request.Email);
                 throw new ArgumentException("Name is required.");
             }
-
             if (request.DepartmentId <= 0)
             {
                 _logger.LogWarning("AddUser failed for email {Email}: Department ID {DeptId} is invalid.", request.Email, request.DepartmentId);
@@ -648,7 +647,7 @@ namespace CapstoneProjectAPI.Services
             var allContent = await reader.ReadToEndAsync();
             var lines = allContent.Split('\n', StringSplitOptions.None);
 
-            if (lines.Length == 0 || (lines.Length == 1 && string.IsNullOrWhiteSpace(lines[0])))
+            if (lines.Length == 1 && string.IsNullOrWhiteSpace(lines[0]))
             {
                 _logger.LogWarning("Bulk upload users failed: CSV file contains no lines.");
                 throw new ArgumentException("CSV file is empty.");

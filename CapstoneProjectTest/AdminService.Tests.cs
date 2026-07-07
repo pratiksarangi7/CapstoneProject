@@ -86,10 +86,42 @@ namespace CapstoneProjectTest
             _context.Users.Add(new User { Name = "User 1", Email = "user1@test.com", PasswordHash = "hashed", DepartmentId = dept.Id });
             await _context.SaveChangesAsync();
 
+            // Test pageNumber < 1 and pageSize > 100
             var result = await _adminService.GetUsers(pageNumber: -1, pageSize: 200);
 
             Assert.That(result.PageNumber, Is.EqualTo(1));
             Assert.That(result.PageSize, Is.EqualTo(10));
+
+            // Test pageSize < 1 (coerces to 10)
+            var result2 = await _adminService.GetUsers(pageNumber: 1, pageSize: 0);
+            Assert.That(result2.PageSize, Is.EqualTo(10));
+        }
+
+        [Test]
+        public async Task GetUsers_WithSearch_ReturnsMatchingUsers()
+        {
+            var dept = new Department { Name = "Engineering" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user1 = new User { Name = "Alice Smith", Email = "alice@test.com", PasswordHash = "hashed", DepartmentId = dept.Id };
+            var user2 = new User { Name = "Bob Jones", Email = "bob@test.com", PasswordHash = "hashed", DepartmentId = dept.Id };
+            _context.Users.AddRange(user1, user2);
+            await _context.SaveChangesAsync();
+
+            // 1. Search by name (case-insensitive)
+            var resultName = await _adminService.GetUsers(search: "alice");
+            Assert.That(resultName.Items.Count, Is.EqualTo(1));
+            Assert.That(resultName.Items[0].Id, Is.EqualTo(user1.Id));
+
+            // 2. Search by email (case-insensitive) -> covers Email.ToLower().Contains(lowerSearch)
+            var resultEmail = await _adminService.GetUsers(search: "BOB@TEST.com");
+            Assert.That(resultEmail.Items.Count, Is.EqualTo(1));
+            Assert.That(resultEmail.Items[0].Id, Is.EqualTo(user2.Id));
+
+            // 3. Search by department (case-insensitive)
+            var resultDept = await _adminService.GetUsers(search: "ENGINEER");
+            Assert.That(resultDept.Items.Count, Is.EqualTo(2));
         }
 
         [Test]
@@ -99,8 +131,8 @@ namespace CapstoneProjectTest
             _context.Departments.Add(dept);
             await _context.SaveChangesAsync();
 
-            var user = new User { Name = "Employee", Email = "emp@test.com", PasswordHash = "hashed", DepartmentId = dept.Id };
-            var manager = new User { Name = "Manager", Email = "mgr@test.com", PasswordHash = "hashed", DepartmentId = dept.Id };
+            var user = new User { Name = "Employee", Email = "emp@test.com", PasswordHash = "hashed", DepartmentId = dept.Id, Level = 1 };
+            var manager = new User { Name = "Manager", Email = "mgr@test.com", PasswordHash = "hashed", DepartmentId = dept.Id, Level = 2 };
             _context.Users.AddRange(user, manager);
             await _context.SaveChangesAsync();
 
@@ -195,6 +227,28 @@ namespace CapstoneProjectTest
             };
 
             Assert.ThrowsAsync<ArgumentException>(async () => await _adminService.ChangeUserManager(request));
+        }
+
+        [Test]
+        public async Task ChangeUserManager_ManagerLevelNotHigher_ThrowsArgumentException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "Employee", Email = "emp@test.com", PasswordHash = "hashed", DepartmentId = dept.Id, Level = 2 };
+            var manager = new User { Name = "Manager", Email = "mgr@test.com", PasswordHash = "hashed", DepartmentId = dept.Id, Level = 2 };
+            _context.Users.AddRange(user, manager);
+            await _context.SaveChangesAsync();
+
+            var request = new ChangeUserManagerRequestDto
+            {
+                UserId = user.Id,
+                ManagerId = manager.Id
+            };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _adminService.ChangeUserManager(request));
+            Assert.That(ex!.Message, Is.EqualTo("A manager must have a strictly higher level than the user."));
         }
 
         [Test]
@@ -900,6 +954,44 @@ namespace CapstoneProjectTest
         }
 
         [Test]
+        public async Task RejectAllPendingDocumentsOfUser_NoCurrentVersion_SavesWithoutVersionId()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "User", Email = "user@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var doc = new Document
+            {
+                Title = "Doc No Version",
+                CreatedByUserId = user.Id,
+                CurrentApproverUserId = null,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval
+            };
+            _context.Documents.Add(doc);
+            await _context.SaveChangesAsync();
+
+            await _adminService.RejectAllPendingDocumentsOfUser(user.Id, 100, "No versions present");
+
+            var updatedDoc = await _context.Documents.FindAsync(doc.Id);
+            Assert.That(updatedDoc!.DocumentStatus, Is.EqualTo(DocumentStatus.Rejected));
+
+            // No ApprovalAction should be created because currentVersion was null
+            var action = await _context.ApprovalActions.FirstOrDefaultAsync(aa => aa.DocumentId == doc.Id);
+            Assert.That(action, Is.Null);
+
+            // Audit log should be created with null DocumentVersionId
+            var auditLog = await _context.AuditLogs.FirstOrDefaultAsync(al => al.DocumentId == doc.Id);
+            Assert.That(auditLog, Is.Not.Null);
+            Assert.That(auditLog!.DocumentVersionId, Is.Null);
+            Assert.That(auditLog.Action, Is.EqualTo(AuditAction.DocumentRejected));
+        }
+
+        [Test]
         public void BulkUploadUsersAsync_FileNull_ThrowsArgumentException()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -950,6 +1042,7 @@ namespace CapstoneProjectTest
             csvContent.AppendLine("Name,email3@test.com,pass123,abc"); // Row 6: invalid dept ID (non-int)
             csvContent.AppendLine("Name,email4@test.com,pass123,999"); // Row 7: non-existent dept ID
             csvContent.AppendLine("Name,existing@test.com,pass123," + dept.Id); // Row 8: existing email
+            csvContent.AppendLine("Name,email5@test.com,," + dept.Id); // Row 9: empty password (covers string.IsNullOrWhiteSpace(password) = true)
 
             var fileMock = new Mock<IFormFile>();
             var ms = new MemoryStream(Encoding.UTF8.GetBytes(csvContent.ToString()));
@@ -960,9 +1053,9 @@ namespace CapstoneProjectTest
             var result = await _adminService.BulkUploadUsersAsync(fileMock.Object, 100);
 
             Assert.That(result, Is.Not.Null);
-            Assert.That(result.TotalRows, Is.EqualTo(7));
+            Assert.That(result.TotalRows, Is.EqualTo(8));
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailureCount, Is.EqualTo(7));
+            Assert.That(result.FailureCount, Is.EqualTo(8));
 
             Assert.That(result.Results[0].RowNumber, Is.EqualTo(2));
             Assert.That(result.Results[0].Success, Is.False);
@@ -991,6 +1084,10 @@ namespace CapstoneProjectTest
             Assert.That(result.Results[6].RowNumber, Is.EqualTo(8));
             Assert.That(result.Results[6].Success, Is.False);
             Assert.That(result.Results[6].Error, Is.EqualTo("A user with email 'existing@test.com' already exists."));
+
+            Assert.That(result.Results[7].RowNumber, Is.EqualTo(9));
+            Assert.That(result.Results[7].Success, Is.False);
+            Assert.That(result.Results[7].Error, Is.EqualTo("Password must be at least 6 characters."));
         }
 
         [Test]
@@ -1046,6 +1143,24 @@ namespace CapstoneProjectTest
 
             var ex = Assert.ThrowsAsync<ArgumentException>(async () => await _adminService.BulkUploadUsersAsync(fileMock.Object, 100));
             Assert.That(ex.Message, Is.EqualTo("CSV file is empty."));
+        }
+
+        [Test]
+        public async Task BulkUploadUsersAsync_OnlyHeader_ReturnsEmptyResults()
+        {
+            var fileMock = new Mock<IFormFile>();
+            var ms = new MemoryStream(Encoding.UTF8.GetBytes("Name,Email,Password,DepartmentId"));
+            fileMock.Setup(_ => _.OpenReadStream()).Returns(ms);
+            fileMock.Setup(_ => _.Length).Returns(32);
+            fileMock.Setup(_ => _.ContentType).Returns("text/csv");
+
+            var result = await _adminService.BulkUploadUsersAsync(fileMock.Object, 100);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Results, Is.Empty);
+            Assert.That(result.TotalRows, Is.EqualTo(0));
+            Assert.That(result.SuccessCount, Is.EqualTo(0));
+            Assert.That(result.FailureCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -1116,6 +1231,318 @@ namespace CapstoneProjectTest
             // Test pageSize > 100 (coerces to 10)
             var result3 = await _adminService.GetAllDocuments(pageNumber: 1, pageSize: 150);
             Assert.That(result3.PageSize, Is.EqualTo(10));
+        }
+
+        [Test]
+        public async Task GetAllDocuments_WithSearch_ReturnsMatchingDocuments()
+        {
+            var dept = new Department { Name = "Engineering" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader User", Email = "up@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(uploader);
+            await _context.SaveChangesAsync();
+
+            var doc1 = new Document { Title = "Contract Doc", CreatedByUserId = uploader.Id, TargetDepartmentId = dept.Id, DocumentStatus = DocumentStatus.Approved };
+            var doc2 = new Document { Title = "Report Doc", CreatedByUserId = uploader.Id, TargetDepartmentId = dept.Id, DocumentStatus = DocumentStatus.Approved };
+            _context.Documents.AddRange(doc1, doc2);
+            await _context.SaveChangesAsync();
+
+            var v1 = new DocumentVersion { DocumentId = doc1.Id, VersionNumber = 1, IsCurrentVersion = true, UploadedByUserId = uploader.Id };
+            var v2 = new DocumentVersion { DocumentId = doc2.Id, VersionNumber = 1, IsCurrentVersion = true, UploadedByUserId = uploader.Id };
+            _context.DocumentVersions.AddRange(v1, v2);
+            await _context.SaveChangesAsync();
+
+            // 1. Search by title
+            var resultTitle = await _adminService.GetAllDocuments(search: "contract");
+            Assert.That(resultTitle.Items.Count, Is.EqualTo(1));
+            Assert.That(resultTitle.Items[0].Title, Is.EqualTo("Contract Doc"));
+
+            // 2. Search by uploader name
+            var resultName = await _adminService.GetAllDocuments(search: "uploader");
+            Assert.That(resultName.Items.Count, Is.EqualTo(2));
+
+            // 3. Search by department name
+            var resultDept = await _adminService.GetAllDocuments(search: "engineer");
+            Assert.That(resultDept.Items.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void GetPotentialManagers_UserNotFound_ThrowsEntityNotFoundException()
+        {
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _adminService.GetPotentialManagers(9999));
+        }
+
+        [Test]
+        public async Task GetPotentialManagers_UserExists_NoSearch_ReturnsActiveUsersInSameDeptWithHigherLevel()
+        {
+            var dept1 = new Department { Name = "HR" };
+            var dept2 = new Department { Name = "IT" };
+            _context.Departments.AddRange(dept1, dept2);
+            await _context.SaveChangesAsync();
+
+            // Target user
+            var user = new User { Name = "TargetUser", Email = "target@test.com", PasswordHash = "hash", DepartmentId = dept1.Id, Level = 2, IsActive = true };
+            
+            // Valid potential managers (same dept, active, higher level)
+            var mgr1 = new User { Name = "MgrOne", Email = "mgr1@test.com", PasswordHash = "hash", DepartmentId = dept1.Id, Level = 3, IsActive = true };
+            var mgr2 = new User { Name = "MgrTwo", Email = "mgr2@test.com", PasswordHash = "hash", DepartmentId = dept1.Id, Level = 4, IsActive = true };
+            
+            // Invalid potential managers
+            var mgrSameLevel = new User { Name = "SameLevel", Email = "same@test.com", PasswordHash = "hash", DepartmentId = dept1.Id, Level = 2, IsActive = true };
+            var mgrLowerLevel = new User { Name = "LowerLevel", Email = "lower@test.com", PasswordHash = "hash", DepartmentId = dept1.Id, Level = 1, IsActive = true };
+            var mgrInactive = new User { Name = "InactiveMgr", Email = "inactive@test.com", PasswordHash = "hash", DepartmentId = dept1.Id, Level = 3, IsActive = false };
+            var mgrDifferentDept = new User { Name = "DiffDept", Email = "diff@test.com", PasswordHash = "hash", DepartmentId = dept2.Id, Level = 3, IsActive = true };
+
+            _context.Users.AddRange(user, mgr1, mgr2, mgrSameLevel, mgrLowerLevel, mgrInactive, mgrDifferentDept);
+            await _context.SaveChangesAsync();
+
+            var result = await _adminService.GetPotentialManagers(user.Id);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(2));
+            // OrderByDescending(u => u.Level) means mgr2 (level 4) comes before mgr1 (level 3)
+            Assert.That(result[0].Id, Is.EqualTo(mgr2.Id));
+            Assert.That(result[1].Id, Is.EqualTo(mgr1.Id));
+        }
+
+        [Test]
+        public async Task GetPotentialManagers_SearchByName_ReturnsMatchingManagers()
+        {
+            var dept = new Department { Name = "Engineering" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "TargetUser", Email = "target@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 1, IsActive = true };
+            var alice = new User { Name = "Alice Smith", Email = "alice@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+            var bob = new User { Name = "Bob Jones", Email = "bob@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+
+            _context.Users.AddRange(user, alice, bob);
+            await _context.SaveChangesAsync();
+
+            // Search by Name (case-insensitive)
+            var result = await _adminService.GetPotentialManagers(user.Id, "alice");
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].Id, Is.EqualTo(alice.Id));
+        }
+
+        [Test]
+        public async Task GetPotentialManagers_SearchByEmail_ReturnsMatchingManagers()
+        {
+            var dept = new Department { Name = "Engineering" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "TargetUser", Email = "target@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 1, IsActive = true };
+            var alice = new User { Name = "Alice Smith", Email = "alice@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+            var bob = new User { Name = "Bob Jones", Email = "bob@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+
+            _context.Users.AddRange(user, alice, bob);
+            await _context.SaveChangesAsync();
+
+            // Search by Email (case-insensitive)
+            var result = await _adminService.GetPotentialManagers(user.Id, "BOB@TEST.com");
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].Id, Is.EqualTo(bob.Id));
+        }
+
+        [Test]
+        public async Task GetPotentialManagers_SearchByDepartmentName_ReturnsMatchingManagers()
+        {
+            var dept = new Department { Name = "Finance" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "TargetUser", Email = "target@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 1, IsActive = true };
+            var manager = new User { Name = "FinanceMgr", Email = "finance@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+
+            _context.Users.AddRange(user, manager);
+            await _context.SaveChangesAsync();
+
+            // Search by Department Name (case-insensitive)
+            var result = await _adminService.GetPotentialManagers(user.Id, "FINAN");
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].Id, Is.EqualTo(manager.Id));
+        }
+
+        [Test]
+        public async Task GetPotentialManagers_SearchNullOrWhiteSpace_DoesNotApplyFilter()
+        {
+            var dept = new Department { Name = "Engineering" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "TargetUser", Email = "target@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 1, IsActive = true };
+            var alice = new User { Name = "Alice Smith", Email = "alice@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+            var bob = new User { Name = "Bob Jones", Email = "bob@test.com", PasswordHash = "hash", DepartmentId = dept.Id, Level = 2, IsActive = true };
+
+            _context.Users.AddRange(user, alice, bob);
+            await _context.SaveChangesAsync();
+
+            // Search is null
+            var resultNull = await _adminService.GetPotentialManagers(user.Id, null!);
+            Assert.That(resultNull.Count, Is.EqualTo(2));
+
+            // Search is whitespace
+            var resultSpace = await _adminService.GetPotentialManagers(user.Id, "   ");
+            Assert.That(resultSpace.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public void AddUser_EmailMissing_ThrowsArgumentException(string? email)
+        {
+            var request = new AddUserRequestDto
+            {
+                Email = email!,
+                Password = "password",
+                Name = "John Doe",
+                DepartmentId = 1
+            };
+
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _adminService.AddUser(request, 999));
+        }
+
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public void AddUser_PasswordMissing_ThrowsArgumentException(string? password)
+        {
+            var request = new AddUserRequestDto
+            {
+                Email = "john@test.com",
+                Password = password!,
+                Name = "John Doe",
+                DepartmentId = 1
+            };
+
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _adminService.AddUser(request, 999));
+        }
+
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public void AddUser_NameMissing_ThrowsArgumentException(string? name)
+        {
+            var request = new AddUserRequestDto
+            {
+                Email = "john@test.com",
+                Password = "password",
+                Name = name!,
+                DepartmentId = 1
+            };
+
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _adminService.AddUser(request, 999));
+        }
+
+        [Test]
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void AddUser_InvalidDepartmentId_ThrowsArgumentException(int deptId)
+        {
+            var request = new AddUserRequestDto
+            {
+                Email = "john@test.com",
+                Password = "password",
+                Name = "John Doe",
+                DepartmentId = deptId
+            };
+
+            Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _adminService.AddUser(request, 999));
+        }
+
+        [Test]
+        public async Task AddUser_EmailAlreadyExists_ThrowsInvalidOperationException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var existingUser = new User { Name = "Existing", Email = "john@test.com", PasswordHash = "hash", DepartmentId = dept.Id };
+            _context.Users.Add(existingUser);
+            await _context.SaveChangesAsync();
+
+            var request = new AddUserRequestDto
+            {
+                Email = "john@test.com",
+                Password = "password",
+                Name = "John Doe",
+                DepartmentId = dept.Id
+            };
+
+            Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _adminService.AddUser(request, 999));
+        }
+
+        [Test]
+        public async Task AddUser_DepartmentNotFound_ThrowsEntityNotFoundException()
+        {
+            var request = new AddUserRequestDto
+            {
+                Email = "john@test.com",
+                Password = "password",
+                Name = "John Doe",
+                DepartmentId = 9999 // Non-existent department
+            };
+
+            Assert.ThrowsAsync<EntityNotFoundException>(async () =>
+                await _adminService.AddUser(request, 999));
+        }
+
+        [Test]
+        public async Task AddUser_ValidRequest_CreatesUserAndAuditLogSuccessfully()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var request = new AddUserRequestDto
+            {
+                Email = "newuser@test.com",
+                Password = "securepassword",
+                Name = "New User",
+                DepartmentId = dept.Id
+            };
+
+            int adminUserId = 123;
+            var result = await _adminService.AddUser(request, adminUserId);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Email, Is.EqualTo(request.Email));
+            Assert.That(result.Name, Is.EqualTo(request.Name));
+            Assert.That(result.DepartmentName, Is.EqualTo(dept.Name));
+
+            // Verify User exists in Db and has IsActive = true
+            var userInDb = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            Assert.That(userInDb, Is.Not.Null);
+            Assert.That(userInDb!.IsActive, Is.True);
+            Assert.That(userInDb.Name, Is.EqualTo(request.Name));
+            Assert.That(userInDb.DepartmentId, Is.EqualTo(dept.Id));
+            Assert.That(userInDb.PasswordHash, Is.Not.Null);
+            Assert.That(userInDb.PasswordHash, Is.Not.EqualTo("securepassword")); // hashed
+
+            // Verify Audit Log is created
+            var auditLog = await _context.AuditLogs.FirstOrDefaultAsync(al => al.Action == AuditAction.UserRegistered);
+            Assert.That(auditLog, Is.Not.Null);
+            Assert.That(auditLog!.PerformedByUserId, Is.EqualTo(adminUserId));
+            Assert.That(auditLog.Details, Contains.Substring(request.Name));
+            Assert.That(auditLog.Details, Contains.Substring(request.Email));
         }
     }
 }

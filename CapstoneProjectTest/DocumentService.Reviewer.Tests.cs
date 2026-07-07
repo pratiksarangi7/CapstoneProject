@@ -36,6 +36,57 @@ namespace CapstoneProjectTest
         }
 
         [Test]
+        public async Task GetDocumentsPendingApprovalByUserAsync_WithSearch_ReturnsMatchingDocuments()
+        {
+            var dept1 = new Department { Name = "HR" };
+            var dept2 = new Department { Name = "IT" };
+            _context.Departments.AddRange(dept1, dept2);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept1.Id };
+            var approver = new User { Name = "Approver", Email = "approver@test.com", PasswordHash = "hash", DepartmentId = dept1.Id };
+            _context.Users.AddRange(uploader, approver);
+            await _context.SaveChangesAsync();
+
+            var doc1 = new Document
+            {
+                Title = "Financial Report",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept1.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            var doc2 = new Document
+            {
+                Title = "Vacation Request",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept2.Id,
+                DocumentStatus = DocumentStatus.PendingApproval,
+                CurrentApproverUserId = approver.Id
+            };
+            _context.Documents.AddRange(doc1, doc2);
+            await _context.SaveChangesAsync();
+
+            // Search by Title
+            var resTitle = await _documentService.GetDocumentsPendingApprovalByUserAsync(approver.Id, pageNumber: 1, pageSize: 10, search: "financial");
+            Assert.That(resTitle.TotalCount, Is.EqualTo(1));
+            Assert.That(resTitle.Items[0].Title, Is.EqualTo("Financial Report"));
+
+            // Search by CreatedByUser Name
+            var resUser = await _documentService.GetDocumentsPendingApprovalByUserAsync(approver.Id, pageNumber: 1, pageSize: 10, search: "uploader");
+            Assert.That(resUser.TotalCount, Is.EqualTo(2));
+
+            // Search by TargetDepartment Name
+            var resDept = await _documentService.GetDocumentsPendingApprovalByUserAsync(approver.Id, pageNumber: 1, pageSize: 10, search: "it");
+            Assert.That(resDept.TotalCount, Is.EqualTo(1));
+            Assert.That(resDept.Items[0].Title, Is.EqualTo("Vacation Request"));
+
+            // Search with no matches
+            var resEmpty = await _documentService.GetDocumentsPendingApprovalByUserAsync(approver.Id, pageNumber: 1, pageSize: 10, search: "nomatch");
+            Assert.That(resEmpty.TotalCount, Is.EqualTo(0));
+        }
+
+        [Test]
         public void GetDocumentsPendingApprovalByUserAsync_UserNotFound_ThrowsEntityNotFoundException()
         {
             Assert.ThrowsAsync<EntityNotFoundException>(async () =>

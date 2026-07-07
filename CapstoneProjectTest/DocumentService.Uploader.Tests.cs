@@ -3,6 +3,10 @@ using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
 using CapstoneProjectAPI.Exceptions;
+using System.Text;
+using Moq;
+using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace CapstoneProjectTest
 {
@@ -131,7 +135,7 @@ namespace CapstoneProjectTest
         }
 
         [Test]
-        public async Task WithdrawDocumentAsync_ValidRequest_DeletesDocumentAndVersionsAndClearsAuditLogs()
+        public async Task WithdrawDocumentAsync_ValidRequest_MarksDocumentAsWithdrawnAndLogsAction()
         {
             var dept = new Department { Name = "HR" };
             _context.Departments.Add(dept);
@@ -169,14 +173,19 @@ namespace CapstoneProjectTest
 
             await _documentService.WithdrawDocumentAsync(uploadedDoc.DocumentId, uploader.Id);
 
-            var docExists = await _context.Documents.AnyAsync(d => d.Id == uploadedDoc.DocumentId);
-            Assert.That(docExists, Is.False);
+            var doc = await _context.Documents.FindAsync(uploadedDoc.DocumentId);
+            Assert.That(doc, Is.Not.Null);
+            Assert.That(doc!.DocumentStatus, Is.EqualTo(DocumentStatus.DocumentWithdrawn));
+            Assert.That(doc.CurrentApproverUserId, Is.Null);
 
-            var auditLogExists = await _context.AuditLogs.AnyAsync(al => al.DocumentId == uploadedDoc.DocumentId);
-            Assert.That(auditLogExists, Is.False);
+            var uploadAuditLogExists = await _context.AuditLogs.AnyAsync(al => al.DocumentId == uploadedDoc.DocumentId && al.Action == AuditAction.DocumentUploaded);
+            Assert.That(uploadAuditLogExists, Is.True);
+
+            var withdrawAuditLogExists = await _context.AuditLogs.AnyAsync(al => al.PerformedByUserId == uploader.Id && al.Action == AuditAction.DocumentWithdrawn);
+            Assert.That(withdrawAuditLogExists, Is.True);
 
             var remainingFiles = Directory.GetFiles(_testUploadsFolder);
-            Assert.That(remainingFiles.Length, Is.EqualTo(0));
+            Assert.That(remainingFiles.Length, Is.EqualTo(1));
         }
 
         [Test]
@@ -269,6 +278,54 @@ namespace CapstoneProjectTest
             Assert.That(result.TotalCount, Is.EqualTo(3));
             Assert.That(result.Items.Count, Is.EqualTo(2));
             Assert.That(result.Items.First().Title, Is.EqualTo("Uploaded Doc 3"));
+        }
+
+        [Test]
+        public async Task GetDocumentsUploadedByUserAsync_WithSearch_ReturnsMatchingDocuments()
+        {
+            var dept1 = new Department { Name = "HR" };
+            var dept2 = new Department { Name = "IT" };
+            _context.Departments.AddRange(dept1, dept2);
+            await _context.SaveChangesAsync();
+
+            var user = new User { Name = "Uploader", Email = "uploader@test.com", PasswordHash = "hash", DepartmentId = dept1.Id };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var doc1 = new Document
+            {
+                Title = "Financial Report",
+                CreatedByUserId = user.Id,
+                TargetDepartmentId = dept1.Id,
+                DocumentStatus = DocumentStatus.PendingApproval
+            };
+            var doc2 = new Document
+            {
+                Title = "Vacation Request",
+                CreatedByUserId = user.Id,
+                TargetDepartmentId = dept2.Id,
+                DocumentStatus = DocumentStatus.Approved
+            };
+            _context.Documents.AddRange(doc1, doc2);
+            await _context.SaveChangesAsync();
+
+            // Search by Title
+            var resTitle = await _documentService.GetDocumentsUploadedByUserAsync(user.Id, pageNumber: 1, pageSize: 10, search: "financial");
+            Assert.That(resTitle.TotalCount, Is.EqualTo(1));
+            Assert.That(resTitle.Items[0].Title, Is.EqualTo("Financial Report"));
+
+            // Search by CreatedByUser Name
+            var resUser = await _documentService.GetDocumentsUploadedByUserAsync(user.Id, pageNumber: 1, pageSize: 10, search: "uploader");
+            Assert.That(resUser.TotalCount, Is.EqualTo(2));
+
+            // Search by TargetDepartment Name
+            var resDept = await _documentService.GetDocumentsUploadedByUserAsync(user.Id, pageNumber: 1, pageSize: 10, search: "it");
+            Assert.That(resDept.TotalCount, Is.EqualTo(1));
+            Assert.That(resDept.Items[0].Title, Is.EqualTo("Vacation Request"));
+
+            // Search with no matches
+            var resEmpty = await _documentService.GetDocumentsUploadedByUserAsync(user.Id, pageNumber: 1, pageSize: 10, search: "nomatch");
+            Assert.That(resEmpty.TotalCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -515,6 +572,56 @@ namespace CapstoneProjectTest
             var ex = Assert.ThrowsAsync<EntityNotFoundException>(async () =>
                 await _documentService.UploadDocument(request, uploader.Id));
             Assert.That(ex.Message, Is.EqualTo("Target department not found."));
+        }
+
+        [Test]
+        public async Task UploadDocument_DuplicateTitle_ThrowsInvalidOperationException()
+        {
+            var dept = new Department { Name = "HR" };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+
+            var uploader = new User 
+            { 
+                Name = "Uploader User", 
+                Email = "uploader@test.com", 
+                PasswordHash = "hash", 
+                DepartmentId = dept.Id,
+                Level = 2
+            };
+            var manager = new User
+            {
+                Name = "Manager User",
+                Email = "manager@test.com",
+                PasswordHash = "hash",
+                DepartmentId = dept.Id,
+                Level = 3
+            };
+            _context.Users.AddRange(uploader, manager);
+            await _context.SaveChangesAsync();
+
+            var activeDoc = new Document
+            {
+                Title = "Active Doc",
+                CreatedByUserId = uploader.Id,
+                TargetDepartmentId = dept.Id,
+                DocumentStatus = DocumentStatus.PendingApproval
+            };
+            _context.Documents.Add(activeDoc);
+            await _context.SaveChangesAsync();
+
+            var mockFile = CreateMockFile("test.pdf", "application/pdf", 100);
+            var request = new UploadDocumentRequestDto
+            {
+                Title = "Active Doc",
+                Description = "Description",
+                TargetDepartmentId = dept.Id,
+                File = mockFile.Object
+            };
+
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await _documentService.UploadDocument(request, uploader.Id));
+            Assert.That(ex.Message, Does.Contain("A document with the same title is already active"));
         }
 
         [Test]
