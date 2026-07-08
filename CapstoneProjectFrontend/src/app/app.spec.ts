@@ -1,10 +1,13 @@
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { App } from './app';
 
-describe('App', () => {
+describe('App Component', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [provideRouter([])]
     }).compileComponents();
   });
 
@@ -14,10 +17,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', async () => {
+  it(`should have as title 'CapstoneProjectFrontend'`, () => {
     const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, CapstoneProjectFrontend');
+    const app = fixture.componentInstance;
+    // Accessing protected property for testing. In Angular signals, this is a function returning the value.
+    expect((app as any).title()).toEqual('CapstoneProjectFrontend');
   });
 });
