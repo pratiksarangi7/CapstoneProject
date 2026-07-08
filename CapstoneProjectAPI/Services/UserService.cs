@@ -92,7 +92,7 @@ namespace CapstoneProjectAPI.Services
             }).ToList();
         }
 
-        public async Task<List<ExternalUserResponseDto>> GetUsersOutsideDepartmentAsync(int currentUserId)
+        public async Task<List<ExternalUserResponseDto>> GetUsersOutsideDepartmentAsync(int currentUserId, string search = "")
         {
             var currentUser = await _context.Users.FindAsync(currentUserId);
             if (currentUser == null)
@@ -101,9 +101,21 @@ namespace CapstoneProjectAPI.Services
                 throw new EntityNotFoundException($"User with ID {currentUserId} was not found.");
             }
 
-            var users = await _context.Users
-                .Where(u => u.DepartmentId != currentUser.DepartmentId && u.Id != currentUserId)
+            var query = _context.Users
+                .Where(u => u.DepartmentId != currentUser.DepartmentId && u.Id != currentUserId);
+            Console.WriteLine("Search item: ", search);
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string lowerSearch = search.ToLower();
+
+                query = query.Where(u => u.Name.ToLower().Contains(lowerSearch) ||
+                                     u.Email.ToLower().Contains(lowerSearch) ||
+                                     u.Department.Name.ToLower().Contains(lowerSearch));
+            }
+
+            var users = await query
                 .OrderBy(u => u.Name)
+                .Take(10)
                 .Select(u => new ExternalUserResponseDto
                 {
                     Id = u.Id,
@@ -114,12 +126,11 @@ namespace CapstoneProjectAPI.Services
                 .ToListAsync();
 
             _logger.LogInformation(
-                "Fetched {Count} users outside department {DepartmentId} for user {UserId}.",
-                users.Count, currentUser.DepartmentId, currentUserId);
+                "Fetched {Count} users outside department {DepartmentId} for user {UserId} with search filter: '{Search}'.",
+                users.Count, currentUser.DepartmentId, currentUserId, search);
 
             return users;
         }
-
         public async Task<PagedResult<AuditLogResponseDto>> GetUserDocumentActionsAsync(int userId, int pageNumber, int pageSize)
         {
             var actions = new List<AuditAction>

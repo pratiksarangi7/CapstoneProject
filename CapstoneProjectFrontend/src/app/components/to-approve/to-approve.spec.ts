@@ -254,7 +254,7 @@ describe('ToApprove Component', () => {
   });
 
   describe('User Search Modal', () => {
-    it('openUserSearchModal should fetch users and set state', async () => {
+    it('openUserSearchModal should initialize state and fetch top 10 users', async () => {
       const { component, httpTesting } = await setup();
       component.isApproveDropdownOpen.set(true);
       
@@ -264,14 +264,15 @@ describe('ToApprove Component', () => {
       expect(component.isApproveDropdownOpen()).toBe(false);
       expect(component.isUsersLoading()).toBe(true);
       expect(component.isUserSearchModalOpen()).toBe(true);
-      
-      httpTesting.expectOne((r) => r.url.includes('/User/external')).flush([makeOtherUser()]);
+
+      const req = httpTesting.expectOne((r) => r.url.includes('/User/external') && r.params.get('search') === '');
+      req.flush([makeOtherUser()]);
       
       expect(component.allOtherDeptUsers()).toHaveLength(1);
       expect(component.isUsersLoading()).toBe(false);
     });
 
-    it('closeUserSearchModal should reset user search state', async () => {
+    it('closeUserSearchModal should reset user search state and clear timeout', async () => {
       const { component } = await setup();
       component.isUserSearchModalOpen.set(true);
       component.pendingActionType.set('Transfer');
@@ -282,23 +283,55 @@ describe('ToApprove Component', () => {
       expect(component.pendingActionType()).toBeNull();
     });
 
-    it('filteredUsers should filter users based on query', async () => {
-      const { component } = await setup();
-      component.allOtherDeptUsers.set([
-        makeOtherUser({ name: 'Charlie', email: 'c@c.com', departmentName: 'HR' }),
-        makeOtherUser({ id: 6, name: 'David', email: 'd@d.com', departmentName: 'IT' })
-      ]);
+    it('loadOtherDeptUsers should fetch users based on query', async () => {
+      const { component, httpTesting } = await setup();
+      component.userSearchQuery = 'charlie';
       
-      component.userSearchQuery = 'charl';
+      component.loadOtherDeptUsers();
+      
+      expect(component.isUsersLoading()).toBe(true);
+      const req = httpTesting.expectOne((r) => r.url.includes('/User/external') && r.params.get('search') === 'charlie');
+      expect(req.request.method).toBe('GET');
+      req.flush([makeOtherUser()]);
+      
+      expect(component.allOtherDeptUsers()).toHaveLength(1);
+      expect(component.isUsersLoading()).toBe(false);
       expect(component.filteredUsers).toHaveLength(1);
-      expect(component.filteredUsers[0].name).toBe('Charlie');
-      
-      component.userSearchQuery = 'IT';
-      expect(component.filteredUsers).toHaveLength(1);
-      expect(component.filteredUsers[0].name).toBe('David');
-      
+    });
+
+    it('loadOtherDeptUsers with empty query should fetch top 10 users', async () => {
+      const { component, httpTesting } = await setup();
       component.userSearchQuery = '';
-      expect(component.filteredUsers).toHaveLength(2);
+      
+      component.loadOtherDeptUsers();
+      
+      expect(component.isUsersLoading()).toBe(true);
+      const req = httpTesting.expectOne((r) => r.url.includes('/User/external') && r.params.get('search') === '');
+      req.flush([makeOtherUser()]);
+      
+      expect(component.allOtherDeptUsers()).toHaveLength(1);
+      expect(component.isUsersLoading()).toBe(false);
+    });
+
+    it('onUserSearchChange should debounce user search API call', async () => {
+      vi.useFakeTimers();
+      const { component, httpTesting } = await setup();
+      component.userSearchQuery = 'test';
+      
+      component.onUserSearchChange();
+      
+      // Fast-forward by 499ms
+      vi.advanceTimersByTime(499);
+      // API should not have been called yet
+      httpTesting.expectNone((r) => r.url.includes('/User/external'));
+      
+      // Fast-forward by another 1ms (total 500ms)
+      vi.advanceTimersByTime(1);
+      
+      const req = httpTesting.expectOne((r) => r.url.includes('/User/external'));
+      req.flush([makeOtherUser()]);
+      
+      vi.useRealTimers();
     });
 
     it('selectTargetUser should update selectedTargetUser signal', async () => {

@@ -59,7 +59,7 @@ namespace CapstoneProjectAPI.Controllers
         }
 
         [HttpGet("external")]
-        public async Task<IActionResult> GetUsersOutsideDepartment()
+        public async Task<IActionResult> GetUsersOutsideDepartment([FromQuery] string search = "")
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
@@ -67,7 +67,7 @@ namespace CapstoneProjectAPI.Controllers
                 return Unauthorized(new { message = "Invalid user token." });
             }
 
-            var users = await _userService.GetUsersOutsideDepartmentAsync(userId);
+            var users = await _userService.GetUsersOutsideDepartmentAsync(userId, search);
             return Ok(users);
         }
 

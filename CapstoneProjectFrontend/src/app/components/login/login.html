@@ -54,9 +54,10 @@
     </div>
 
     <button [disabled]="progress() || loginForm().invalid()" type="submit" class="submit-btn">
-      <span class="btn-text">Sign In</span>
       @if (progress()) {
         <div class="btn-spinner"></div>
+      } @else {
+        <span class="btn-text">Sign In</span>
       }
     </button>
   </form>

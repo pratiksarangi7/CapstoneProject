@@ -13,9 +13,10 @@ import { PaginatedResponse } from "../helpers";
 export class UserService {
     constructor(private http: HttpClient) {
     }
-    public getOtherDeptUsers(): Observable<OtherDepartmentUsersResponseDto[]> {
+    public getOtherDeptUsers(search: string = ""): Observable<OtherDepartmentUsersResponseDto[]> {
         const url = `${baseUrl}/User/external`;
-        return this.http.get<OtherDepartmentUsersResponseDto[]>(url);
+        const params = new HttpParams().set('search', search);
+        return this.http.get<OtherDepartmentUsersResponseDto[]>(url, { params });
     }
     public getProfileDetails(): Observable<UserProfileResponseDto> {
         const url = `${baseUrl}/User/me`;
@@ -32,6 +33,6 @@ export class UserService {
             .set('pageSize', pageSize.toString());
         return this.http.get<PaginatedResponse<UserApprovalActionResponseDto>>(url, { params });
     }
-    
+
 
 }

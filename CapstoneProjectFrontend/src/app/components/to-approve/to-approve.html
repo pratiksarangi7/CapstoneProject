@@ -410,11 +410,12 @@
               class="user-search-input"
               placeholder="Search by name, email, or department…"
               [(ngModel)]="userSearchQuery"
+              (input)="onUserSearchChange()"
               autocomplete="off"
               aria-label="Search users"
             />
             @if (userSearchQuery) {
-              <button class="search-clear-btn" type="button" (click)="userSearchQuery = ''" aria-label="Clear search">
+              <button class="search-clear-btn" type="button" (click)="clearUserSearch()" aria-label="Clear search">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -450,7 +451,11 @@
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <p>No users found matching "{{ userSearchQuery }}"</p>
+                @if (userSearchQuery.trim()) {
+                  <p>No users found matching "{{ userSearchQuery }}"</p>
+                } @else {
+                  <p>No users found</p>
+                }
               </div>
             } @else {
               @for (user of filteredUsers; track user.id) {

@@ -26,6 +26,7 @@ export class ToApprove implements OnInit, OnDestroy {
   isLoading = signal(false);
   searchQuery = signal<string>('');
   searchTimeout: any;
+  userSearchTimeout: any;
 
   pendingDocuments = signal<DocsPendingApprovalApiResponse>({
     items: [],
@@ -172,10 +173,43 @@ export class ToApprove implements OnInit, OnDestroy {
     this.isApproveDropdownOpen.set(false);
     this.userSearchQuery = '';
     this.selectedTargetUser.set(null);
+    this.allOtherDeptUsers.set([]);
     this.isUsersLoading.set(true);
     this.isUserSearchModalOpen.set(true);
+    this.loadOtherDeptUsers();
+  }
 
-    this.userService.getOtherDeptUsers().subscribe({
+  closeUserSearchModal(): void {
+    this.isUserSearchModalOpen.set(false);
+    this.pendingActionType.set(null);
+    this.userSearchQuery = '';
+    this.selectedTargetUser.set(null);
+    if (this.userSearchTimeout) {
+      clearTimeout(this.userSearchTimeout);
+    }
+  }
+
+  onUserSearchChange(): void {
+    if (this.userSearchTimeout) {
+      clearTimeout(this.userSearchTimeout);
+    }
+    this.userSearchTimeout = setTimeout(() => {
+      this.loadOtherDeptUsers();
+    }, 500);
+  }
+
+  clearUserSearch(): void {
+    this.userSearchQuery = '';
+    if (this.userSearchTimeout) {
+      clearTimeout(this.userSearchTimeout);
+    }
+    this.loadOtherDeptUsers();
+  }
+
+  loadOtherDeptUsers(): void {
+    const q = this.userSearchQuery.trim();
+    this.isUsersLoading.set(true);
+    this.userService.getOtherDeptUsers(q).subscribe({
       next: (users) => {
         this.allOtherDeptUsers.set(users);
         this.isUsersLoading.set(false);
@@ -187,21 +221,8 @@ export class ToApprove implements OnInit, OnDestroy {
     });
   }
 
-  closeUserSearchModal(): void {
-    this.isUserSearchModalOpen.set(false);
-    this.pendingActionType.set(null);
-    this.userSearchQuery = '';
-    this.selectedTargetUser.set(null);
-  }
-
   get filteredUsers(): OtherDepartmentUsersResponseDto[] {
-    const q = this.userSearchQuery.trim().toLowerCase();
-    if (!q) return this.allOtherDeptUsers();
-    return this.allOtherDeptUsers().filter(u =>
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.departmentName.toLowerCase().includes(q)
-    );
+    return this.allOtherDeptUsers();
   }
 
   selectTargetUser(user: OtherDepartmentUsersResponseDto): void {
@@ -247,7 +268,7 @@ export class ToApprove implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Reject failed', error);
-          alert('Failed to perform rejection. Please try again.');
+          alert(error.error.message);
           this.isLoading.set(false);
         }
       });
@@ -279,7 +300,7 @@ export class ToApprove implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Transfer failed', error);
-          alert('Failed to transfer document. Please try again.');
+          alert(error.error.message);
           this.isLoading.set(false);
         }
       });
@@ -296,7 +317,7 @@ export class ToApprove implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error(`${label} failed`, error);
-        alert(`Failed to perform action. Please try again.`);
+        alert(error.error.message);
         this.isLoading.set(false);
       }
     });
@@ -352,6 +373,12 @@ export class ToApprove implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.cleanupObjectURL();
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    if (this.userSearchTimeout) {
+      clearTimeout(this.userSearchTimeout);
+    }
   }
 
   formatUploaderName(name: string | null): string {

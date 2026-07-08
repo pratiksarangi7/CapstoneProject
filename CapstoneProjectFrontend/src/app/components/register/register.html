@@ -107,9 +107,10 @@
 
     <!-- Submit Button -->
     <button [disabled]="progress() || registerForm().invalid() || registerModel().departmentId === ''" type="submit" class="submit-btn">
-      <span class="btn-text">Register</span>
       @if (progress()) {
         <div class="btn-spinner"></div>
+      } @else {
+        <span class="btn-text">Register</span>
       }
     </button>
   </form>

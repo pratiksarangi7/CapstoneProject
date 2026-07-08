@@ -83,8 +83,9 @@ describe('Register Component', () => {
       expect(component.departments()[1].name).toBe('HR');
     });
 
-    it('should define email and password regex patterns', async () => {
+    it('should define name, email, and password regex patterns', async () => {
       const { component } = await setup();
+      expect(component.nameRegex).toBeInstanceOf(RegExp);
       expect(component.emailRegex).toBeInstanceOf(RegExp);
       expect(component.passwordRegex).toBeInstanceOf(RegExp);
     });
@@ -240,6 +241,39 @@ describe('Register Component', () => {
         departmentId: '1',
       });
       expect(component.registerForm().invalid()).toBe(true);
+    });
+
+    it('should be invalid when name contains numbers', async () => {
+      const { component } = await setup();
+      component.registerModel.set({
+        name: 'John123',
+        email: 'john@example.com',
+        password: 'Secure12',
+        departmentId: '1',
+      });
+      expect(component.registerForm().invalid()).toBe(true);
+    });
+
+    it('should be invalid when name contains special characters', async () => {
+      const { component } = await setup();
+      component.registerModel.set({
+        name: 'John@Doe',
+        email: 'john@example.com',
+        password: 'Secure12',
+        departmentId: '1',
+      });
+      expect(component.registerForm().invalid()).toBe(true);
+    });
+
+    it('should be valid when name contains alphabets and spaces', async () => {
+      const { component } = await setup();
+      component.registerModel.set({
+        name: 'John Doe',
+        email: 'john@example.com',
+        password: 'Secure12',
+        departmentId: '1',
+      });
+      expect(component.registerForm().invalid()).toBe(false);
     });
 
     it('should be invalid when email is missing', async () => {
