@@ -26,7 +26,7 @@ export class Register implements OnInit {
   constructor(private authService: AuthService, private departmentService: DepartmentService, private router: Router) { }
 
   emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+  passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$#]{8,}$/;
 
   registerForm = form(this.registerModel, (path) => {
     required(path.name, { message: "Name is required" });
@@ -35,7 +35,7 @@ export class Register implements OnInit {
     pattern(path.email, this.emailRegex, { message: "Please enter a valid email address" });
     required(path.password, { message: "Password is required" });
     minLength(path.password, 8, { message: "Password must be at least 8 characters long" });
-    pattern(path.password, this.passwordRegex, { message: "Password must contain at least one letter and one number" });
+    pattern(path.password, this.passwordRegex, { message: "Password must contain at least one letter and one number. Special characters: @, $, # are only allowed" });
     required(path.departmentId, { message: "Department is required" });
   });
 
