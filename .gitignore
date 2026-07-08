@@ -39,3 +39,4 @@ TestResults/
 appsettings.Development.json
 .env
 Uploads/
+coveragereport/
