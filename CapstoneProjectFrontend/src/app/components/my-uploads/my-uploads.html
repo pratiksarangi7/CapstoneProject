@@ -61,6 +61,7 @@
           <th>Title</th>
           <th class="th-desc">Description</th>
           <th class="th-status">Status</th>
+          <th class="th-date">Expiry Date</th>
           <th class="th-center">Details</th>
         </tr>
       </thead>
@@ -78,6 +79,16 @@
               {{ doc.documentStatus }}
             </span>
           </td>
+          <td class="td-date">
+            @if (isExpiringSoon(doc.expiryDate)) {
+              <span class="expiry-soon-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                {{ doc.expiryDate | date:'mediumDate' }}
+              </span>
+            } @else {
+              {{ doc.expiryDate ? (doc.expiryDate | date:'mediumDate') : 'N/A' }}
+            }
+          </td>
           <td class="td-action">
             <button class="btn-expand" [class.btn-expand--open]="isExpanded(doc.id)" (click)="toggleExpand(doc.id)"
               [attr.aria-expanded]="isExpanded(doc.id)"
@@ -92,7 +103,7 @@
 
         @if (isExpanded(doc.id)) {
         <tr class="detail-row">
-          <td colspan="5">
+          <td colspan="6">
             <div class="detail-panel slide-down">
 
               <div class="detail-meta-grid">
@@ -103,6 +114,10 @@
                 <div class="meta-card">
                   <span class="meta-label">Created At</span>
                   <span class="meta-value">{{ formatDate(doc.createdAt) }}</span>
+                </div>
+                <div class="meta-card">
+                  <span class="meta-label">Expiry Date</span>
+                  <span class="meta-value">{{ doc.expiryDate ? (doc.expiryDate | date:'mediumDate') : 'N/A' }}</span>
                 </div>
                 <div class="meta-card">
                   <span class="meta-label">Current Approver</span>
@@ -121,6 +136,13 @@
                   </span>
                 </div>
               </div>
+
+              @if (isExpiringSoon(doc.expiryDate)) {
+              <div class="expiry-warning-banner" role="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span>This document cannot be accessed after <strong>{{ doc.expiryDate | date:'mediumDate' }}</strong>. It expires in {{ daysUntilExpiry(doc.expiryDate!) }} day{{ daysUntilExpiry(doc.expiryDate!) === 1 ? '' : 's' }}.</span>
+              </div>
+              }
 
               <div class="versions-section">
                 <h4 class="versions-heading">

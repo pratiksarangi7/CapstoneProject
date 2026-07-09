@@ -1317,3 +1317,46 @@
     transform: rotate(360deg);
   }
 }
+
+/* ── Expiry warning ──────────────────────────────────────────────────────── */
+.expiry-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #b45309;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.expiry-soon-badge svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  stroke: #b45309;
+}
+
+.expiry-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md, 8px);
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.expiry-warning-banner svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke: #d97706;
+  margin-top: 1px;
+}
+
+.expiry-warning-banner strong {
+  font-weight: 600;
+}
