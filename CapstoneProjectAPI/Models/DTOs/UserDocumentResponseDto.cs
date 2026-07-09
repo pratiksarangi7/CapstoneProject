@@ -23,6 +23,8 @@ namespace CapstoneProjectAPI.Models.DTOs
         public string CreatedByUserName { get; set; } = string.Empty;
         public string CreatedByUserEmail { get; set; } = string.Empty;
 
+        public DateTime? ExpiryDate { get; set; }
+
         public List<DocumentVersionResponseDto> Versions { get; set; } = new();
     }
 }

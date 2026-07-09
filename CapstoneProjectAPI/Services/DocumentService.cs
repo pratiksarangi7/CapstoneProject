@@ -14,6 +14,7 @@ namespace CapstoneProjectAPI.Services
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<DocumentService> _logger;
+        private readonly IConfiguration _configuration;
 
         private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -24,11 +25,12 @@ namespace CapstoneProjectAPI.Services
 
         private const long MaxFileSizeBytes = 5 * 1024 * 1024;
 
-        public DocumentService(AppDbContext context, IWebHostEnvironment environment, ILogger<DocumentService> logger)
+        public DocumentService(AppDbContext context, IWebHostEnvironment environment, ILogger<DocumentService> logger,IConfiguration configuration)
         {
             _context = context;
             _environment = environment;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<UploadDocumentResponseDto> UploadDocument(UploadDocumentRequestDto request, int uploaderUserId)
@@ -132,7 +134,8 @@ namespace CapstoneProjectAPI.Services
                 DocumentStatus = approverUserId.HasValue ? DocumentStatus.PendingApproval : DocumentStatus.Approved,
                 CurrentApproverUserId = approverUserId,
                 TargetDepartmentId = request.TargetDepartmentId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                ExpiryDate = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("DefaultDocumentExpiryDays", 365))
             };
 
             _context.Documents.Add(document);
@@ -187,7 +190,8 @@ namespace CapstoneProjectAPI.Services
                 OriginalFileName = documentVersion.OriginalFileName,
                 FileSize = documentVersion.FileSize,
                 MimeType = documentVersion.MimeType,
-                CreatedAt = document.CreatedAt
+                CreatedAt = document.CreatedAt,
+                ExpiryDate = document.ExpiryDate
             };
         }
 
@@ -318,6 +322,7 @@ namespace CapstoneProjectAPI.Services
                 CreatedByUserId = document.CreatedByUserId,
                 CreatedByUserName = document.CreatedByUser?.Name ?? string.Empty,
                 CreatedByUserEmail = document.CreatedByUser?.Email ?? string.Empty,
+                ExpiryDate = document.ExpiryDate,
                 Versions = document.Versions
                     .OrderByDescending(v => v.VersionNumber)
                     .Select(MapDocumentVersion)
@@ -575,7 +580,7 @@ namespace CapstoneProjectAPI.Services
                 MimeType = mimeType,
                 IsCurrentVersion = true,
                 UploadedByUserId = uploaderUserId,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow,
             };
             _context.DocumentVersions.Add(newVersion);
 
@@ -583,7 +588,7 @@ namespace CapstoneProjectAPI.Services
                 ? DocumentStatus.PendingApproval
                 : DocumentStatus.Approved;
             document.CurrentApproverUserId = approverUserId;
-
+            document.ExpiryDate = DateTime.UtcNow.AddDays(_configuration.GetValue<int>("DefaultDocumentExpiryDays", 365));
             _context.AuditLogs.Add(new AuditLog
             {
                 PerformedByUserId = uploaderUserId,
@@ -618,7 +623,8 @@ namespace CapstoneProjectAPI.Services
                 OriginalFileName = newVersion.OriginalFileName,
                 FileSize = newVersion.FileSize,
                 MimeType = newVersion.MimeType,
-                CreatedAt = document.CreatedAt
+                CreatedAt = document.CreatedAt,
+                ExpiryDate = document.ExpiryDate
             };
         }
 
