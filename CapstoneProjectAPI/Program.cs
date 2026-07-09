@@ -1,8 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-using CapstoneProjectAPI.Middlewares;
+using System.Threading.RateLimiting;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Mappings;
+using CapstoneProjectAPI.Middlewares;
 using CapstoneProjectAPI.Models;
 using CapstoneProjectAPI.Repositories;
 using CapstoneProjectAPI.Services;
@@ -10,8 +12,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using System.Threading.RateLimiting;
-using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 #region cors
@@ -131,6 +131,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<AuditLogService>();
+builder.Services.AddScoped<DocumentCleanupService>();
+builder.Services.AddHostedService<DocumentExpiryWorker>();
 builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
 #endregion
 
