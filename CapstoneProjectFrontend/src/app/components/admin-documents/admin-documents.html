@@ -142,7 +142,9 @@
             </div>
             <div class="meta-card">
               <span class="meta-label">Expiry Date</span>
-              @if (isExpiringSoon(doc.expiryDate)) {
+              @if (doc.isExpired) {
+              <span class="meta-value"><span class="badge-expired">Expired</span></span>
+              } @else if (isExpiringSoon(doc.expiryDate)) {
               <span class="meta-value expiry-soon-badge">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 {{ doc.expiryDate | date:'mediumDate' }}
@@ -167,7 +169,12 @@
             </div>
           </div>
 
-          @if (isExpiringSoon(doc.expiryDate)) {
+          @if (doc.isExpired) {
+          <div class="expiry-expired-banner" role="alert">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span>This document has expired and <strong>can no longer be accessed</strong>.</span>
+          </div>
+          } @else if (isExpiringSoon(doc.expiryDate)) {
           <div class="expiry-warning-banner" role="alert">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <span>This document cannot be accessed after <strong>{{ doc.expiryDate | date:'mediumDate' }}</strong>. It expires in {{ daysUntilExpiry(doc.expiryDate!) }} day{{ daysUntilExpiry(doc.expiryDate!) === 1 ? '' : 's' }}.</span>
@@ -201,7 +208,9 @@
                     }
                   </div>
                   <button class="btn-view-doc" (click)="viewDocument(doc.id, ver); $event.stopPropagation()"
-                    aria-label="Preview version {{ ver.versionNumber }}">
+                    aria-label="Preview version {{ ver.versionNumber }}"
+                    [disabled]="doc.isExpired"
+                    [title]="doc.isExpired ? 'This document has expired and cannot be accessed' : 'Preview'">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
