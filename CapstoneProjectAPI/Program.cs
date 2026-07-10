@@ -1,4 +1,5 @@
 using System.Text;
+using Azure.Storage.Blobs;
 using CapstoneProjectAPI.Middlewares;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Interfaces;
@@ -131,6 +132,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<AuditLogService>();
+
+builder.Services.AddSingleton(x => new BlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage:ConnectionString")));
+builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
 #endregion
 

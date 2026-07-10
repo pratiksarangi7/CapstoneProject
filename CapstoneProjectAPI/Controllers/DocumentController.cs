@@ -152,8 +152,7 @@ namespace CapstoneProjectAPI.Controllers
 
             var file = await _documentService.GetDocumentFileAsync(id, requestingUserId, versionId);
 
-            return PhysicalFile(file.FilePath, file.MimeType,
-                enableRangeProcessing: true);
+            return File(file.FileStream!, file.MimeType, file.OriginalFileName, enableRangeProcessing: true);
         }
     }
 }

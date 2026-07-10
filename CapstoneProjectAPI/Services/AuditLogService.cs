@@ -43,8 +43,8 @@ namespace CapstoneProjectAPI.Services
             {
                 Id = al.Id,
                 PerformedByUserId = al.PerformedByUserId,
-                PerformedByUserName = al.PerformedByUser.Name,
-                PerformedByUserEmail = al.PerformedByUser.Email,
+                PerformedByUserName = al.PerformedByUser != null ? al.PerformedByUser.Name : string.Empty,
+                PerformedByUserEmail = al.PerformedByUser != null ? al.PerformedByUser.Email : string.Empty,
                 DocumentId = al.DocumentId,
                 DocumentTitle = al.Document != null ? al.Document.Title : null,
                 DocumentVersionId = al.DocumentVersionId,
@@ -93,8 +93,8 @@ namespace CapstoneProjectAPI.Services
             {
                 Id = al.Id,
                 PerformedByUserId = al.PerformedByUserId,
-                PerformedByUserName = al.PerformedByUser.Name,
-                PerformedByUserEmail = al.PerformedByUser.Email,
+                PerformedByUserName = al.PerformedByUser != null ? al.PerformedByUser.Name : string.Empty,
+                PerformedByUserEmail = al.PerformedByUser != null ? al.PerformedByUser.Email : string.Empty,
                 DocumentId = al.DocumentId,
                 DocumentTitle = al.Document != null ? al.Document.Title : null,
                 DocumentVersionId = al.DocumentVersionId,

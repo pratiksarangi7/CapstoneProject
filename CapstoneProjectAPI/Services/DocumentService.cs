@@ -1,3 +1,4 @@
+using CapstoneProjectAPI.Interfaces;
 using CapstoneProjectAPI.Data;
 using CapstoneProjectAPI.Exceptions;
 using CapstoneProjectAPI.Misc;
@@ -14,6 +15,7 @@ namespace CapstoneProjectAPI.Services
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<DocumentService> _logger;
+        private readonly IBlobStorageService _blobStorageService;
 
         private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -24,11 +26,12 @@ namespace CapstoneProjectAPI.Services
 
         private const long MaxFileSizeBytes = 5 * 1024 * 1024;
 
-        public DocumentService(AppDbContext context, IWebHostEnvironment environment, ILogger<DocumentService> logger)
+        public DocumentService(AppDbContext context, IWebHostEnvironment environment, ILogger<DocumentService> logger, IBlobStorageService blobStorageService)
         {
             _context = context;
             _environment = environment;
             _logger = logger;
+            _blobStorageService = blobStorageService;
         }
 
         public async Task<UploadDocumentResponseDto> UploadDocument(UploadDocumentRequestDto request, int uploaderUserId)
@@ -113,16 +116,8 @@ namespace CapstoneProjectAPI.Services
                 throw;
             }
 
-            string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
-            Directory.CreateDirectory(uploadsFolder);
-
             string storedFileName = $"{Guid.NewGuid()}{Path.GetExtension(request.File.FileName)}";
-            string filePath = Path.Combine(uploadsFolder, storedFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await request.File.CopyToAsync(stream);
-            }
+            await _blobStorageService.UploadFileAsync(request.File.OpenReadStream(), storedFileName, mimeType);
 
             var document = new Document
             {
@@ -548,16 +543,8 @@ namespace CapstoneProjectAPI.Services
             foreach (var v in document.Versions)
                 v.IsCurrentVersion = false;
 
-            string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
-            Directory.CreateDirectory(uploadsFolder);
-
             string storedFileName = $"{Guid.NewGuid()}{Path.GetExtension(request.File.FileName)}";
-            string filePath = Path.Combine(uploadsFolder, storedFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await request.File.CopyToAsync(stream);
-            }
+            await _blobStorageService.UploadFileAsync(request.File.OpenReadStream(), storedFileName, mimeType);
 
             int nextVersionNumber = document.Versions.Any()
                 ? document.Versions.Max(v => v.VersionNumber) + 1
@@ -1005,14 +992,16 @@ namespace CapstoneProjectAPI.Services
                 }
             }
 
-            string uploadsFolder = Path.Combine(_environment.ContentRootPath, "Uploads");
-            string filePath = Path.Combine(uploadsFolder, version.StoredFileName);
-
-            if (!File.Exists(filePath))
+            Stream fileStream;
+            try
             {
-                _logger.LogWarning("Download failed: Physical file for version {Version} of document {DocumentId} was not found on the server at path {Path}.", version.VersionNumber, documentId, filePath);
+                fileStream = await _blobStorageService.DownloadFileAsync(version.StoredFileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Download failed: Blob for version {Version} of document {DocumentId} was not found on Azure.", version.VersionNumber, documentId);
                 throw new EntityNotFoundException(
-                    $"Physical file for version {version.VersionNumber} of document {documentId} " +
+                    $"File for version {version.VersionNumber} of document {documentId} " +
                     "was not found on the server.");
             }
 
@@ -1031,7 +1020,7 @@ namespace CapstoneProjectAPI.Services
 
             return new DocumentFileDto
             {
-                FilePath = filePath,
+                FileStream = fileStream,
                 MimeType = version.MimeType,
                 OriginalFileName = version.OriginalFileName,
                 VersionNumber = version.VersionNumber
