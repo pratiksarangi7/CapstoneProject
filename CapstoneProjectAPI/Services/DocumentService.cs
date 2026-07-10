@@ -207,6 +207,12 @@ namespace CapstoneProjectAPI.Services
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
             }
 
+            if (document.IsExpired)
+            {
+                _logger.LogWarning("Withdraw failed: Document {DocumentId} is expired.", documentId);
+                throw new InvalidOperationException("This document has expired and cannot be withdrawn.");
+            }
+
             if (document.CreatedByUserId != requestingUserId)
             {
                 _logger.LogWarning("Withdraw failed: User {UserId} is not authorized to withdraw document {DocumentId}.", requestingUserId, documentId);
@@ -414,7 +420,7 @@ namespace CapstoneProjectAPI.Services
                     .ThenInclude(v => v.ApprovalActions)
                         .ThenInclude(aa => aa.ApproverUser)
                         .AsSplitQuery()
-                .Where(d => d.CurrentApproverUserId == userId && d.DocumentStatus == DocumentStatus.PendingApproval);
+                .Where(d => d.CurrentApproverUserId == userId && d.DocumentStatus == DocumentStatus.PendingApproval && !d.IsExpired);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -452,6 +458,12 @@ namespace CapstoneProjectAPI.Services
             {
                 _logger.LogWarning("Rejection failed: Document with ID {DocumentId} not found.", documentId);
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
+
+            if (document.IsExpired)
+            {
+                _logger.LogWarning("Rejection failed: Document {DocumentId} is expired.", documentId);
+                throw new InvalidOperationException("This document has expired and cannot be rejected.");
             }
 
             if (document.CurrentApproverUserId != approverUserId)
@@ -529,6 +541,12 @@ namespace CapstoneProjectAPI.Services
             {
                 _logger.LogWarning("Re-upload failed: Document with ID {DocumentId} not found.", documentId);
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
+
+            if (document.IsExpired)
+            {
+                _logger.LogWarning("Re-upload failed: Document {DocumentId} is expired.", documentId);
+                throw new InvalidOperationException("This document has expired and cannot be re-uploaded.");
             }
 
             if (document.CreatedByUserId != uploaderUserId)
@@ -643,6 +661,12 @@ namespace CapstoneProjectAPI.Services
             {
                 _logger.LogWarning("Approval failed: Document with ID {DocumentId} not found.", documentId);
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
+
+            if (document.IsExpired)
+            {
+                _logger.LogWarning("Approval failed: Document {DocumentId} is expired.", documentId);
+                throw new InvalidOperationException("This document has expired and cannot be approved.");
             }
 
             if (document.CurrentApproverUserId != approverUserId)
@@ -868,6 +892,12 @@ namespace CapstoneProjectAPI.Services
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
             }
 
+            if (document.IsExpired)
+            {
+                _logger.LogWarning("Transfer failed: Document {DocumentId} is expired.", documentId);
+                throw new InvalidOperationException("This document has expired and cannot be transferred.");
+            }
+
             if (document.CurrentApproverUserId != currentApproverUserId)
             {
                 _logger.LogWarning("Transfer failed: User {UserId} is not the current approver for document {DocumentId}.", currentApproverUserId, documentId);
@@ -971,6 +1001,12 @@ namespace CapstoneProjectAPI.Services
             {
                 _logger.LogWarning("Download failed: Document with ID {DocumentId} not found.", documentId);
                 throw new EntityNotFoundException($"Document with ID {documentId} was not found.");
+            }
+
+            if (document.IsExpired)
+            {
+                _logger.LogWarning("Download failed: Document {DocumentId} is expired.", documentId);
+                throw new InvalidOperationException("This document has expired and cannot be downloaded.");
             }
 
             var requestingUser = await _context.Users.FindAsync(requestingUserId);
