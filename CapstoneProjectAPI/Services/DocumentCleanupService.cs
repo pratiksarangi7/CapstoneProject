@@ -1,5 +1,4 @@
 using CapstoneProjectAPI.Data;
-using CapstoneProjectAPI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace CapstoneProjectAPI.Services
@@ -62,9 +61,9 @@ namespace CapstoneProjectAPI.Services
                     }
                 }
 
-                if (doc.DocumentStatus != DocumentStatus.Expired)
+                if (!doc.IsExpired)
                 {
-                    doc.DocumentStatus = DocumentStatus.Expired;
+                    doc.IsExpired = true;
                     statusUpdated++;
                 }
             }

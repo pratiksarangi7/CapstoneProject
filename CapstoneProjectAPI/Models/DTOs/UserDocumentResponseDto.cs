@@ -24,6 +24,7 @@ namespace CapstoneProjectAPI.Models.DTOs
         public string CreatedByUserEmail { get; set; } = string.Empty;
 
         public DateTime? ExpiryDate { get; set; }
+        public bool IsExpired { get; set; }
 
         public List<DocumentVersionResponseDto> Versions { get; set; } = new();
     }

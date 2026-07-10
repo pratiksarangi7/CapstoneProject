@@ -191,7 +191,8 @@ namespace CapstoneProjectAPI.Services
                 FileSize = documentVersion.FileSize,
                 MimeType = documentVersion.MimeType,
                 CreatedAt = document.CreatedAt,
-                ExpiryDate = document.ExpiryDate
+                ExpiryDate = document.ExpiryDate,
+                IsExpired = document.IsExpired
             };
         }
 
@@ -323,6 +324,7 @@ namespace CapstoneProjectAPI.Services
                 CreatedByUserName = document.CreatedByUser?.Name ?? string.Empty,
                 CreatedByUserEmail = document.CreatedByUser?.Email ?? string.Empty,
                 ExpiryDate = document.ExpiryDate,
+                IsExpired = document.IsExpired,
                 Versions = document.Versions
                     .OrderByDescending(v => v.VersionNumber)
                     .Select(MapDocumentVersion)
@@ -624,7 +626,8 @@ namespace CapstoneProjectAPI.Services
                 FileSize = newVersion.FileSize,
                 MimeType = newVersion.MimeType,
                 CreatedAt = document.CreatedAt,
-                ExpiryDate = document.ExpiryDate
+                ExpiryDate = document.ExpiryDate,
+                IsExpired = document.IsExpired
             };
         }
 

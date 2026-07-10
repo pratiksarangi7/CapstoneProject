@@ -15,5 +15,6 @@ namespace CapstoneProjectAPI.Models.DTOs
         public string MimeType { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? ExpiryDate { get; set; }
+        public bool IsExpired { get; set; }
     }
 }

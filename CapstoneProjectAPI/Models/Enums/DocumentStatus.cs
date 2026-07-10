@@ -7,7 +7,6 @@ namespace CapstoneProjectAPI.Models.Enums
         Approved,
         Rejected,
         ForwardedToDepartment,
-        DocumentWithdrawn,
-        Expired
+        DocumentWithdrawn
     }
 }
