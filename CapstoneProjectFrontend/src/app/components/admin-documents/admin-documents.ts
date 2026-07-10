@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from '../../services/admin.service';
 import { UserDocumentResponseDto } from '../../dtos/user-document.response.dto';
@@ -10,7 +11,7 @@ import { DocumentStatus } from '../../enums/document-status-filter.enum';
 
 @Component({
   selector: 'app-admin-documents',
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe],
   templateUrl: './admin-documents.html',
   styleUrl: './admin-documents.css',
 })
@@ -179,6 +180,18 @@ export class AdminDocuments implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  isExpiringSoon(dateStr: string | undefined): boolean {
+    if (!dateStr) return false;
+    const msInDay = 24 * 60 * 60 * 1000;
+    const daysLeft = (new Date(dateStr).getTime() - Date.now()) / msInDay;
+    return daysLeft >= 0 && daysLeft < 7;
+  }
+
+  daysUntilExpiry(dateStr: string): number {
+    const msInDay = 24 * 60 * 60 * 1000;
+    return Math.ceil((new Date(dateStr).getTime() - Date.now()) / msInDay);
   }
 
   formatFileSize(bytes: number): string {

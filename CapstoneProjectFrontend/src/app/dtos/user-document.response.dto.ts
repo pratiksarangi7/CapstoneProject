@@ -6,6 +6,8 @@ export interface UserDocumentResponseDto {
     description: string;
     documentStatus: string;
     createdAt: string;
+    expiryDate?: string;
+    isExpired: boolean;
 
     targetDepartmentId: number;
     targetDepartmentName: string;

@@ -12,7 +12,8 @@ namespace CapstoneProjectAPI.Models
         public int? CurrentApproverUserId { get; set; }
         public int TargetDepartmentId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
+        public DateTime? ExpiryDate { get; set; }
+        public bool IsExpired { get; set; } = false;
         public User CreatedByUser { get; set; } = null!;
         public User? CurrentApprover { get; set; }
         public Department TargetDepartment { get; set; } = null!;

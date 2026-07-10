@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { DocumentService } from '../../services/document.service';
 import { MyUploadsApiResponse } from '../../dtos/my-uploads.response.dto';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -8,7 +9,7 @@ import { DocumentStatus } from '../../enums/document-status-filter.enum';
 
 @Component({
   selector: 'app-my-uploads',
-  imports: [UploadDoc],
+  imports: [UploadDoc, DatePipe],
   templateUrl: './my-uploads.html',
   styleUrl: './my-uploads.css',
 })
@@ -134,6 +135,18 @@ export class MyUploads implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  isExpiringSoon(dateStr: string | undefined): boolean {
+    if (!dateStr) return false;
+    const msInDay = 24 * 60 * 60 * 1000;
+    const daysLeft = (new Date(dateStr).getTime() - Date.now()) / msInDay;
+    return daysLeft >= 0 && daysLeft < 7;
+  }
+
+  daysUntilExpiry(dateStr: string): number {
+    const msInDay = 24 * 60 * 60 * 1000;
+    return Math.ceil((new Date(dateStr).getTime() - Date.now()) / msInDay);
   }
 
   formatFileSize(bytes: number): string {

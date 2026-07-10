@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DocumentService } from '../../services/document.service';
 import { UserService } from '../../services/user.service';
@@ -16,7 +17,7 @@ type PendingActionType = 'Approve Completely' | 'Approve & Forward' | 'Approve &
 
 @Component({
   selector: 'app-to-approve',
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe],
   templateUrl: './to-approve.html',
   styleUrl: './to-approve.css',
 })
@@ -131,6 +132,18 @@ export class ToApprove implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  isExpiringSoon(dateStr: string | undefined): boolean {
+    if (!dateStr) return false;
+    const msInDay = 24 * 60 * 60 * 1000;
+    const daysLeft = (new Date(dateStr).getTime() - Date.now()) / msInDay;
+    return daysLeft >= 0 && daysLeft < 7;
+  }
+
+  daysUntilExpiry(dateStr: string): number {
+    const msInDay = 24 * 60 * 60 * 1000;
+    return Math.ceil((new Date(dateStr).getTime() - Date.now()) / msInDay);
   }
 
   formatFileSize(bytes: number): string {
