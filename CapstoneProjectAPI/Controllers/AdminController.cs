@@ -1,10 +1,10 @@
-using CapstoneProjectAPI.Services;
-using CapstoneProjectAPI.Models.DTOs;
-using CapstoneProjectAPI.Exceptions;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using CapstoneProjectAPI.Exceptions;
+using CapstoneProjectAPI.Models.DTOs;
 using CapstoneProjectAPI.Models.Enums;
+using CapstoneProjectAPI.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CapstoneProjectAPI.Controllers
 {
@@ -162,6 +162,15 @@ namespace CapstoneProjectAPI.Controllers
 
             var result = await _adminService.BulkUploadUsersAsync(file, adminUserId);
             return Ok(result);
+        }
+        [HttpPost("cleanup")]
+        public async Task<IActionResult> ManuallyTriggerCleanup(
+            [FromServices] DocumentCleanupService cleanupService,
+            [FromQuery] DateTime? asOfDate = null)
+        {
+            await cleanupService.RunCleanupAsync(asOfDate);
+            var cutoff = (asOfDate ?? DateTime.UtcNow.AddDays(-1)).Date;
+            return Ok(new { message = $"Cleanup triggered successfully. Processed documents expired on or before {cutoff:yyyy-MM-dd}." });
         }
     }
 }

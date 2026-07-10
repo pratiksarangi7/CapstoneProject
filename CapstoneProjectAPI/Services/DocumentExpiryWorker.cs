@@ -18,7 +18,10 @@ namespace CapstoneProjectAPI.Services
             {
                 using var scope = _serviceProvider.CreateScope();
                 var service = scope.ServiceProvider.GetRequiredService<DocumentCleanupService>();
-                await service.RunCleanupAsync(stoppingToken);
+                // Pass yesterday explicitly — the worker runs just after midnight so
+                // documents whose ExpiryDate was yesterday are fully expired
+                var yesterday = DateTime.UtcNow.AddDays(-1).Date;
+                await service.RunCleanupAsync(asOfDate: yesterday, stoppingToken);
             }
         }
     }
