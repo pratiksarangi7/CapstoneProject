@@ -17,18 +17,34 @@ namespace CapstoneProjectAPI.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("DocumentExpiryWorker started. Cleanup runs every 24 hours.");
-
-            using var timer = new PeriodicTimer(TimeSpan.FromHours(24));
+            _logger.LogInformation("DocumentExpiryWorker started. Runs at midnight UTC daily.");
 
             try
             {
-                while (await timer.WaitForNextTickAsync(stoppingToken))
+                // Run immediately on startup to catch any days missed while the app was down
+                _logger.LogInformation("DocumentExpiryWorker: running startup cleanup.");
+                using (var scope = _serviceProvider.CreateScope())
                 {
+                    var service = scope.ServiceProvider.GetRequiredService<DocumentCleanupService>();
+                    await service.RunDailyAsync(stoppingToken);
+                }
+
+                // Then wait until next midnight UTC and repeat every 24 hours
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    var now = DateTime.UtcNow;
+                    var nextMidnight = now.Date.AddDays(1); // tomorrow at 00:00:00 UTC
+                    var delay = nextMidnight - now;
+
+                    _logger.LogInformation(
+                        "Next cleanup scheduled at {NextRun:yyyy-MM-dd HH:mm:ss} UTC (in {Hours}h {Minutes}m).",
+                        nextMidnight, (int)delay.TotalHours, delay.Minutes);
+
+                    await Task.Delay(delay, stoppingToken);
+
                     using var scope = _serviceProvider.CreateScope();
                     var service = scope.ServiceProvider.GetRequiredService<DocumentCleanupService>();
-                    var yesterday = DateTime.UtcNow.AddDays(-1).Date;
-                    await service.RunCleanupAsync(asOfDate: yesterday, stoppingToken);
+                    await service.RunDailyAsync(stoppingToken);
                 }
             }
             catch (OperationCanceledException)

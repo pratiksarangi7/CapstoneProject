@@ -15,39 +15,118 @@ namespace CapstoneProjectAPI.Services
         }
 
         /// <summary>
-        /// Cleans up documents whose ExpiryDate is on or before <paramref name="asOfDate"/>.
-        /// Deletes all physical version files and marks the document as Expired.
-        /// When called by the background worker (after midnight) asOfDate defaults to yesterday,
-        /// so only documents that fully expired the previous day are processed.
+        /// Called by the background worker every day after midnight.
+        /// - Expires documents whose ExpiryDate == yesterday (exact date, not cumulative)
+        /// - Sends 7-day warning emails for documents expiring on today + 7 days
         /// </summary>
-        public async Task RunCleanupAsync(DateTime? asOfDate = null, CancellationToken stoppingToken = default)
+        public async Task RunDailyAsync(CancellationToken stoppingToken = default)
         {
-            // Default to yesterday — safe cutoff when the worker runs just after midnight.
-            // Force UTC kind — query string parsing produces Kind=Unspecified which Npgsql rejects.
-            var rawDate = (asOfDate ?? DateTime.UtcNow.AddDays(-1)).Date;
-            var cutoff = DateTime.SpecifyKind(rawDate, DateTimeKind.Utc);
+            var yesterday = DateTime.SpecifyKind(DateTime.UtcNow.AddDays(-1).Date, DateTimeKind.Utc);
+            var warningDate = DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(7), DateTimeKind.Utc);
+            await RunAsync(expiryDate: yesterday, warningDate: warningDate, stoppingToken);
+        }
 
-            _logger.LogInformation("Starting document cleanup for expiry date <= {Cutoff:yyyy-MM-dd}.", cutoff);
+        /// <summary>
+        /// Called manually via the admin endpoint.
+        /// - Expires documents whose ExpiryDate == asOfDate exactly
+        /// - Sends 7-day warning emails for documents expiring on asOfDate + 7 days
+        /// </summary>
+        public async Task RunManualAsync(DateTime asOfDate, CancellationToken stoppingToken = default)
+        {
+            var expiryDate = DateTime.SpecifyKind(asOfDate.Date, DateTimeKind.Utc);
+            var today = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+
+            if (expiryDate > today)
+                throw new ArgumentException(
+                    $"asOfDate cannot be in the future. Provided: {expiryDate:yyyy-MM-dd}, Today (UTC): {today:yyyy-MM-dd}.");
+
+            var warningDate = DateTime.SpecifyKind(expiryDate.AddDays(7), DateTimeKind.Utc);
+            await RunAsync(expiryDate: expiryDate, warningDate: warningDate, stoppingToken);
+        }
+
+        private async Task RunAsync(DateTime expiryDate, DateTime warningDate, CancellationToken stoppingToken)
+        {
+            _logger.LogInformation(
+                "Cleanup started | Expiring: {ExpiryDate:yyyy-MM-dd} | Warning for: {WarningDate:yyyy-MM-dd}.",
+                expiryDate, warningDate);
 
             using var scope = _serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+            var smtp = scope.ServiceProvider.GetRequiredService<SmtpService>();
 
-            string uploadsFolder = Path.Combine(env.ContentRootPath, "Uploads");
-
-            // Fetch all docs expired on or before the cutoff, regardless of current status
-            // so re-running cleanup is always idempotent and catches leftover files
-            var expiredDocs = await context.Documents
-                .Include(d => d.Versions)
-                .Where(d => d.ExpiryDate != null && d.ExpiryDate.Value.Date <= cutoff)
+            // ── 1. Send warning emails for documents expiring on warningDate ─────────
+            var warningDocs = await context.Documents
+                .Include(d => d.CreatedByUser)
+                .Include(d => d.CurrentApprover)
+                .Where(d => d.ExpiryDate != null
+                         && d.ExpiryDate.Value.Date <= warningDate
+                         && !d.IsExpired)
                 .ToListAsync(stoppingToken);
 
+            foreach (var doc in warningDocs)
+            {
+                // Notify the document owner
+                try
+                {
+                    await smtp.SendEmailAsync(
+                        doc.CreatedByUser.Email,
+                        "Document Expiring Soon",
+                        $"Your document '{doc.Title}' will expire on {warningDate:MMMM dd, yyyy}. " +
+                        $"Please take the necessary action before it expires.");
+
+                    _logger.LogInformation(
+                        "Expiry warning sent to owner {Email} for document {DocumentId}.",
+                        doc.CreatedByUser.Email, doc.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Failed to send expiry warning to owner {Email} for document {DocumentId}.",
+                        doc.CreatedByUser.Email, doc.Id);
+                }
+
+                // Notify the current approver if one is assigned
+                if (doc.CurrentApprover != null)
+                {
+                    try
+                    {
+                        await smtp.SendEmailAsync(
+                            doc.CurrentApprover.Email,
+                            "Approval Required: Document Expiring Soon",
+                            $"The document '{doc.Title}' is pending your approval and will expire on {warningDate:MMMM dd, yyyy}. " +
+                            $"Please review it before it expires.");
+
+                        _logger.LogInformation(
+                            "Expiry warning sent to approver {Email} for document {DocumentId}.",
+                            doc.CurrentApprover.Email, doc.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "Failed to send expiry warning to approver {Email} for document {DocumentId}.",
+                            doc.CurrentApprover.Email, doc.Id);
+                    }
+                }
+            }
+
+            _logger.LogInformation(
+                "Warning phase done. {Count} document(s) expiring on {WarningDate:yyyy-MM-dd} notified.",
+                warningDocs.Count, warningDate);
+
+            // ── 2. Expire documents whose ExpiryDate == expiryDate exactly ───────────
+            var expiredDocs = await context.Documents
+                .Include(d => d.Versions)
+                .Where(d => d.ExpiryDate != null
+                         && d.ExpiryDate.Value.Date == expiryDate)
+                .ToListAsync(stoppingToken);
+
+            string uploadsFolder = Path.Combine(env.ContentRootPath, "Uploads");
             int filesDeleted = 0;
             int statusUpdated = 0;
 
             foreach (var doc in expiredDocs)
             {
-                // Delete physical files for every version, not just the current one
                 foreach (var version in doc.Versions)
                 {
                     string filePath = Path.Combine(uploadsFolder, version.StoredFileName);
@@ -71,8 +150,8 @@ namespace CapstoneProjectAPI.Services
             await context.SaveChangesAsync(stoppingToken);
 
             _logger.LogInformation(
-                "Cleanup finished. Cutoff: {Cutoff:yyyy-MM-dd} | Documents processed: {DocCount} | Files deleted: {FileCount} | Status updated: {StatusCount}.",
-                cutoff, expiredDocs.Count, filesDeleted, statusUpdated);
+                "Cleanup done. Expiry date: {ExpiryDate:yyyy-MM-dd} | Documents: {DocCount} | Files deleted: {FileCount} | Marked expired: {StatusCount}.",
+                expiryDate, expiredDocs.Count, filesDeleted, statusUpdated);
         }
     }
 }

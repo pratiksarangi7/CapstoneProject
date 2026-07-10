@@ -168,9 +168,12 @@ namespace CapstoneProjectAPI.Controllers
             [FromServices] DocumentCleanupService cleanupService,
             [FromQuery] DateTime? asOfDate = null)
         {
-            await cleanupService.RunCleanupAsync(asOfDate);
-            var cutoff = (asOfDate ?? DateTime.UtcNow.AddDays(-1)).Date;
-            return Ok(new { message = $"Cleanup triggered successfully. Processed documents expired on or before {cutoff:yyyy-MM-dd}." });
+            var date = (asOfDate ?? DateTime.UtcNow.AddDays(-1)).Date;
+            await cleanupService.RunManualAsync(date);
+            return Ok(new
+            {
+                message = $"Cleanup triggered. Expired documents for {date:yyyy-MM-dd}. Warning emails sent for {date.AddDays(7):yyyy-MM-dd}."
+            });
         }
     }
 }

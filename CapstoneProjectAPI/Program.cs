@@ -132,6 +132,7 @@ builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<DocumentCleanupService>();
+builder.Services.AddScoped<SmtpService>();
 builder.Services.AddHostedService<DocumentExpiryWorker>();
 builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
 #endregion
