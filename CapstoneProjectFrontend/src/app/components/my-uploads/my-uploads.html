@@ -206,7 +206,9 @@
                         }
                         @if (ver.isCurrentVersion && doc.documentStatus === 'PendingApproval') {
                         <button class="btn-withdraw" (click)="withdrawDocument(doc.id)"
-                          aria-label="Withdraw pending document">
+                          aria-label="Withdraw pending document"
+                          [disabled]="doc.isExpired"
+                          [title]="doc.isExpired ? 'This document has expired and cannot be withdrawn' : 'Withdraw'">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
