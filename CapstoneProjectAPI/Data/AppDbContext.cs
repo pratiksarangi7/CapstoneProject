@@ -107,6 +107,10 @@ namespace CapstoneProjectAPI.Data
                       .HasMaxLength(64)
                       .IsRequired(false);
 
+                entity.Property(dv => dv.AiSummary)
+                      .HasMaxLength(2000)
+                      .IsRequired(false);
+
                 entity.HasOne(dv => dv.Document)
                       .WithMany(d => d.Versions)
                       .HasForeignKey(dv => dv.DocumentId)

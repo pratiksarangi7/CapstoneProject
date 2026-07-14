@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capstone-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: capstone-api
+  template:
+    metadata:
+      labels:
+        app: capstone-api
+    spec:
+      containers:
+      - name: capstone-api
+        image: pratikcapstone.azurecr.io/capstone-api:v3 
+        ports:
+        - containerPort: 8080
+        env:
+        - name: AzureKeyVault__VaultUri
+          value: "https://kv-pratik-main.vault.azure.net/"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            secretKeyRef:
+              name: supabase-db-secret
+              key: connection-string
+        - name: Jwt__Key
+          valueFrom:
+            secretKeyRef:
+              name: jwt-token-secret
+              key: jwt-key
+      imagePullSecrets:
+      - name: acr-credentials      

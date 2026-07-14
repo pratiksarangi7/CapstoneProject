@@ -16,6 +16,7 @@ namespace CapstoneProjectAPI.Services
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<DocumentService> _logger;
         private readonly IBlobStorageService _blobStorageService;
+        private readonly IGeminiService _geminiService;
 
         private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -26,12 +27,18 @@ namespace CapstoneProjectAPI.Services
 
         private const long MaxFileSizeBytes = 5 * 1024 * 1024;
 
-        public DocumentService(AppDbContext context, IWebHostEnvironment environment, ILogger<DocumentService> logger, IBlobStorageService blobStorageService)
+        public DocumentService(
+            AppDbContext context,
+            IWebHostEnvironment environment,
+            ILogger<DocumentService> logger,
+            IBlobStorageService blobStorageService,
+            IGeminiService geminiService)
         {
             _context = context;
             _environment = environment;
             _logger = logger;
             _blobStorageService = blobStorageService;
+            _geminiService = geminiService;
         }
 
         public async Task<UploadDocumentResponseDto> UploadDocument(UploadDocumentRequestDto request, int uploaderUserId)
@@ -119,6 +126,21 @@ namespace CapstoneProjectAPI.Services
             string storedFileName = $"{Guid.NewGuid()}{Path.GetExtension(request.File.FileName)}";
             await _blobStorageService.UploadFileAsync(request.File.OpenReadStream(), storedFileName, mimeType);
 
+            string? aiSummary = null;
+            try
+            {
+                using var summaryStream = request.File.OpenReadStream();
+                aiSummary = await _geminiService.GenerateSummaryAsync(summaryStream, mimeType, request.File.FileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "AI summary generation failed for document '{Title}' (file: '{FileName}'). Proceeding without summary.",
+                    request.Title, request.File.FileName);
+            }
+            // ----------------------------------
+
             var document = new Document
             {
                 Title = request.Title,
@@ -142,6 +164,7 @@ namespace CapstoneProjectAPI.Services
                 FileSize = request.File.Length,
                 MimeType = mimeType,
                 ContentHash = contentHash,
+                AiSummary = aiSummary,
                 IsCurrentVersion = true,
                 UploadedByUserId = uploaderUserId,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -287,6 +310,7 @@ namespace CapstoneProjectAPI.Services
                 StoredFileName = version.StoredFileName,
                 FileSize = version.FileSize,
                 MimeType = version.MimeType,
+                AiSummary = version.AiSummary,
                 IsCurrentVersion = version.IsCurrentVersion,
                 UploadedByUserId = version.UploadedByUserId,
                 UploadedByUserName = version.UploadedByUser?.Name ?? string.Empty,
@@ -546,6 +570,24 @@ namespace CapstoneProjectAPI.Services
             string storedFileName = $"{Guid.NewGuid()}{Path.GetExtension(request.File.FileName)}";
             await _blobStorageService.UploadFileAsync(request.File.OpenReadStream(), storedFileName, mimeType);
 
+            // --- AI Summary (non-blocking) ---
+            // Regenerated for every new version since file content has changed.
+            // Any failure is caught and logged; it must never prevent the re-upload from completing.
+            string? aiSummary = null;
+            try
+            {
+                using var summaryStream = request.File.OpenReadStream();
+                aiSummary = await _geminiService.GenerateSummaryAsync(summaryStream, mimeType, request.File.FileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "AI summary generation failed during re-upload for document {DocumentId} (file: '{FileName}'). Proceeding without summary.",
+                    documentId, request.File.FileName);
+            }
+            // ----------------------------------
+
             int nextVersionNumber = document.Versions.Any()
                 ? document.Versions.Max(v => v.VersionNumber) + 1
                 : 1;
@@ -560,6 +602,7 @@ namespace CapstoneProjectAPI.Services
                 StoredFileName = storedFileName,
                 FileSize = request.File.Length,
                 MimeType = mimeType,
+                AiSummary = aiSummary,
                 IsCurrentVersion = true,
                 UploadedByUserId = uploaderUserId,
                 CreatedAt = DateTimeOffset.UtcNow

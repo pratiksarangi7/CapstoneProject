@@ -10,6 +10,7 @@ namespace CapstoneProjectAPI.Models
         public long FileSize { get; set; }
         public string MimeType { get; set; } = string.Empty;
         public string? ContentHash { get; set; }
+        public string? AiSummary { get; set; }
         public bool IsCurrentVersion { get; set; } = false;
         public int UploadedByUserId { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

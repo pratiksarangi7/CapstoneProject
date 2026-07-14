@@ -11,6 +11,7 @@ namespace CapstoneProjectAPI.Models.DTOs
         public string StoredFileName { get; set; } = string.Empty;
         public long FileSize { get; set; }
         public string MimeType { get; set; } = string.Empty;
+        public string? AiSummary { get; set; }
         public bool IsCurrentVersion { get; set; }
         public int UploadedByUserId { get; set; }
         public string UploadedByUserName { get; set; } = string.Empty;

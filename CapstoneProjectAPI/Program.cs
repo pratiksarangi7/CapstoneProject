@@ -1,4 +1,5 @@
 using System.Text;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using CapstoneProjectAPI.Middlewares;
 using CapstoneProjectAPI.Data;
@@ -15,12 +16,20 @@ using System.Threading.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var keyVaultUri = builder.Configuration["AzureKeyVault:VaultUri"];
+if (!string.IsNullOrEmpty(keyVaultUri) && keyVaultUri != "YOUR_KEY_VAULT_URI_HERE")
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUri),
+        new DefaultAzureCredential());
+}
 #region cors
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularDev", policy =>
     {
-        policy.WithOrigins("http://localhost:4200")
+        policy.WithOrigins("http://localhost:4200", "http://pratstorage1979.z29.web.core.windows.net", "https://pratstorage1979.z29.web.core.windows.net")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -136,6 +145,10 @@ builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddSingleton(x => new BlobServiceClient(builder.Configuration.GetValue<string>("AzureBlobStorage:ConnectionString")));
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
 builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
+
+// Gemini AI summary service
+builder.Services.AddHttpClient("GeminiClient");
+builder.Services.AddScoped<IGeminiService, GeminiService>();
 #endregion
 
 var app = builder.Build();
