@@ -291,7 +291,7 @@ export class MyUploads implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Re-upload failed', err);
-        this.reuploadError.set('Re-upload failed. Please try again.');
+        this.reuploadError.set('Re-upload failed. You are possibly uploading the same file. Please try again.');
         this.reuploadLoading.set(false);
       }
     });

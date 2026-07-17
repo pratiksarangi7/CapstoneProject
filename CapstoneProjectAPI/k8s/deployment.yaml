@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: capstone-api
-        image: pratikcapstone.azurecr.io/capstone-api:v3 
+        image: pratikcapstone.azurecr.io/capstone-api:v4 
         ports:
         - containerPort: 8080
         env:

@@ -5,19 +5,12 @@ using CapstoneProjectAPI.Interfaces;
 
 namespace CapstoneProjectAPI.Services
 {
-    /// <summary>
-    /// Calls the Gemini REST API (Google AI Studio) to generate a concise AI summary
-    /// of an uploaded document. Uses inline base64 encoding so no separate File API
-    /// upload step is needed for files ≤ 5 MB.
-    /// </summary>
     public class GeminiService : IGeminiService
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<GeminiService> _logger;
 
-        // Maximum inline payload size accepted by the Gemini inline-data API (20 MB raw → ~27 MB base64).
-        // Our upload limit is already 5 MB so this is always safe.
         private const int MaxInlineSizeBytes = 20 * 1024 * 1024;
 
         public GeminiService(
@@ -30,7 +23,6 @@ namespace CapstoneProjectAPI.Services
             _logger = logger;
         }
 
-        /// <inheritdoc/>
         public async Task<string?> GenerateSummaryAsync(Stream fileStream, string mimeType, string fileName)
         {
             var apiKey = _configuration["GeminiApi:ApiKey"];
@@ -42,7 +34,6 @@ namespace CapstoneProjectAPI.Services
 
             var model = _configuration["GeminiApi:Model"] ?? "gemini-2.0-flash";
 
-            // Read file bytes (stream must be readable; callers open a fresh stream for us)
             byte[] fileBytes;
             try
             {
@@ -67,7 +58,6 @@ namespace CapstoneProjectAPI.Services
             string base64Data = Convert.ToBase64String(fileBytes);
             string prompt = BuildPrompt(mimeType);
 
-            // Build the Gemini generateContent request body
             var requestBody = new
             {
                 contents = new[]
@@ -91,7 +81,7 @@ namespace CapstoneProjectAPI.Services
                 generationConfig = new
                 {
                     temperature = 0.2,
-                    maxOutputTokens = 360
+                    maxOutputTokens = 400
                 }
             };
 
@@ -137,10 +127,6 @@ namespace CapstoneProjectAPI.Services
             }
         }
 
-        /// <summary>
-        /// Selects a tailored prompt based on the MIME type of the document.
-        /// PDFs are treated as textual documents; JPEG/PNG are treated as images.
-        /// </summary>
         private static string BuildPrompt(string mimeType)
         {
             if (mimeType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
@@ -153,7 +139,6 @@ namespace CapstoneProjectAPI.Services
                     "Write the summary in plain professional English without bullet points or headings.";
             }
 
-            // image/jpeg or image/png
             return
                 "You are a document management assistant. " +
                 "Analyse the image carefully and produce a concise description of 2 to 4 sentences. " +
@@ -162,10 +147,6 @@ namespace CapstoneProjectAPI.Services
                 "Write the description in plain professional English without bullet points or headings.";
         }
 
-        /// <summary>
-        /// Navigates the Gemini response JSON to extract the generated text.
-        /// Path: candidates[0].content.parts[0].text
-        /// </summary>
         private static string? ExtractText(JsonElement root)
         {
             try
@@ -179,7 +160,6 @@ namespace CapstoneProjectAPI.Services
             }
             catch (Exception)
             {
-                // If the JSON shape is unexpected (e.g. safety block), return null
                 return null;
             }
         }

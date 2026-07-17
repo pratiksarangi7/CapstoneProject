@@ -8,6 +8,7 @@ export interface DocumentVersionResponseDto {
     storedFileName: string;
     fileSize: number;
     mimeType: string;
+    aiSummary?: string | null;
     isCurrentVersion: boolean;
     uploadedByUserId: number;
     uploadedByUserName: string;

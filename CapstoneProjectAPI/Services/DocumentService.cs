@@ -564,15 +564,42 @@ namespace CapstoneProjectAPI.Services
                 throw new EntityNotFoundException("Uploader user not found.");
             }
 
+            string contentHash = await ComputeSha256HashAsync(request.File);
+
+            bool isDuplicateContent = await _context.DocumentVersions.AnyAsync(dv =>
+                dv.UploadedByUserId == uploaderUserId &&
+                dv.ContentHash == contentHash &&
+                dv.Document.TargetDepartmentId == document.TargetDepartmentId &&
+                (dv.Document.DocumentStatus == DocumentStatus.PendingApproval ||
+                 dv.Document.DocumentStatus == DocumentStatus.Approved ||
+                 dv.Document.DocumentStatus== DocumentStatus.Rejected));
+
+            if (isDuplicateContent)
+            {
+                _logger.LogWarning(
+                    "Re-upload failed: User {UserId} already has an active document with identical file content (hash: {Hash}).",
+                    uploaderUserId, contentHash);
+                throw new InvalidOperationException(
+                    "An identical file has already been uploaded and is currently active. " +
+                    "Please upload a different document.");
+            }
+
+            var currentRejectedVersion = document.Versions.FirstOrDefault(v => v.IsCurrentVersion);
+            if (currentRejectedVersion != null && currentRejectedVersion.ContentHash == contentHash)
+            {
+                _logger.LogWarning(
+                    "Re-upload failed: User {UserId} attempted to upload the exact same file that was rejected.",
+                    uploaderUserId);
+                throw new InvalidOperationException(
+                    "This file is identical to the version that was just rejected. Please upload a revised document.");
+            }
             foreach (var v in document.Versions)
                 v.IsCurrentVersion = false;
 
             string storedFileName = $"{Guid.NewGuid()}{Path.GetExtension(request.File.FileName)}";
             await _blobStorageService.UploadFileAsync(request.File.OpenReadStream(), storedFileName, mimeType);
 
-            // --- AI Summary (non-blocking) ---
-            // Regenerated for every new version since file content has changed.
-            // Any failure is caught and logged; it must never prevent the re-upload from completing.
+            // --- AI Summary ---
             string? aiSummary = null;
             try
             {
@@ -586,7 +613,6 @@ namespace CapstoneProjectAPI.Services
                     "AI summary generation failed during re-upload for document {DocumentId} (file: '{FileName}'). Proceeding without summary.",
                     documentId, request.File.FileName);
             }
-            // ----------------------------------
 
             int nextVersionNumber = document.Versions.Any()
                 ? document.Versions.Max(v => v.VersionNumber) + 1
