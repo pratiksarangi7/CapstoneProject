@@ -17,6 +17,7 @@ namespace CapstoneProjectAPI.Services
         private readonly ILogger<DocumentService> _logger;
         private readonly IBlobStorageService _blobStorageService;
         private readonly IGeminiService _geminiService;
+        private readonly IEmailService _emailService;
 
         private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -32,13 +33,15 @@ namespace CapstoneProjectAPI.Services
             IWebHostEnvironment environment,
             ILogger<DocumentService> logger,
             IBlobStorageService blobStorageService,
-            IGeminiService geminiService)
+            IGeminiService geminiService,
+            IEmailService emailService)
         {
             _context = context;
             _environment = environment;
             _logger = logger;
             _blobStorageService = blobStorageService;
             _geminiService = geminiService;
+            _emailService = emailService;
         }
 
         public async Task<UploadDocumentResponseDto> UploadDocument(UploadDocumentRequestDto request, int uploaderUserId)
@@ -185,8 +188,28 @@ namespace CapstoneProjectAPI.Services
             string? approverName = null;
             if (approverUserId.HasValue)
             {
-                var approver = await _context.Users.FindAsync(approverUserId.Value);
+                var approver = await _context.Users
+                    .Include(u => u.Department)
+                    .FirstOrDefaultAsync(u => u.Id == approverUserId.Value);
                 approverName = approver?.Name;
+
+                // Fire-and-forget: notify the approver that a document awaits their review.
+                if (approver != null)
+                {
+                    var dept = await _context.Departments.FindAsync(request.TargetDepartmentId);
+                    _ = Task.Run(() => _emailService.SendDocumentUploadedToApproverAsync(
+                        approverEmail:        approver.Email,
+                        approverName:         approver.Name,
+                        uploaderName:         uploader.Name,
+                        documentTitle:        document.Title,
+                        documentDescription:  document.Description,
+                        targetDepartmentName: dept?.Name ?? request.TargetDepartmentId.ToString(),
+                        fileName:             request.File.FileName,
+                        fileSize:             request.File.Length,
+                        mimeType:             mimeType,
+                        documentId:           document.Id,
+                        uploadedAt:           document.CreatedAt));
+                }
             }
 
             _logger.LogInformation("Document {DocumentId} ('{Title}') successfully uploaded by user {UserId}. Status: {Status}, Next Approver: {ApproverId}.",
@@ -758,6 +781,21 @@ namespace CapstoneProjectAPI.Services
                             ApproverComments = request.Comments,
                             ActedAt = actedAt
                         };
+
+                        // Fire-and-forget: notify the document uploader that their document was approved.
+                        var uploader = await _context.Users.FindAsync(document.CreatedByUserId);
+                        if (uploader != null)
+                        {
+                            _ = Task.Run(() => _emailService.SendDocumentApprovedToUploaderAsync(
+                                uploaderEmail:        uploader.Email,
+                                uploaderName:         uploader.Name,
+                                approverName:         currentApprover.Name,
+                                documentTitle:        document.Title,
+                                documentDescription:  document.Description,
+                                targetDepartmentName: document.TargetDepartment?.Name ?? string.Empty,
+                                documentId:           document.Id,
+                                approvedAt:           actedAt));
+                        }
 
                         _logger.LogInformation("Document {DocumentId} successfully approved entirely by approver {ApproverId}.", documentId, approverUserId);
                         break;

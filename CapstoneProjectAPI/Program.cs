@@ -149,6 +149,9 @@ builder.Services.AddAutoMapper(m => m.AddProfile(new MappingProfile()));
 // Gemini AI summary service
 builder.Services.AddHttpClient("GeminiClient");
 builder.Services.AddScoped<IGeminiService, GeminiService>();
+
+// Email notification service
+builder.Services.AddScoped<IEmailService, EmailService>();
 #endregion
 
 var app = builder.Build();
